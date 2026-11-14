@@ -74,6 +74,7 @@ function draw() {
       } else {
         cell.textContent = String(board.values[index]);
         if (clues[index]) { cell.classList.add('given'); cell.setAttribute('aria-label', `${board.values[index]}, given clue`); }
+        else if (clues.some(Boolean)) { cell.classList.add('filled'); cell.setAttribute('aria-label', `${board.values[index]}, solver-filled cell`); }
       }
       cell.style.setProperty('--cell-color', `var(--color-${(board.values[index] - 1) % 9})`);
       if (!editing && column < board.size - 1 && board.regions[index] !== board.regions[index + 1]) cell.classList.add('edge-right');
@@ -124,7 +125,7 @@ solveButton.addEventListener('click', () => {
           status.textContent = 'The solution failed validation. Please try again.'; return;
         }
         board = result.board; editing = false; draw();
-        status.textContent = 'Solved! Bold numbers are your clues. One valid solution shown; uniqueness is not checked.';
+        status.textContent = 'Solved! Black numbers are your clues; blue numbers are filled in. One valid solution shown; uniqueness is not checked.';
       } else status.textContent = result.status === 'impossible' ? 'No solution exists for these clues. Edit them and try again.' : result.status === 'timeout' ? 'Search reached the 10-second limit. A solution may still exist; add more clues and try again.' : 'Check your clues: use whole numbers between 1 and the number of cells.';
     };
     worker.onerror = () => { stopSolving(); status.textContent = 'The solver could not finish. Your clues are preserved; please try again.'; };
