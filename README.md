@@ -13,4 +13,10 @@ npm run dev
 
 The generator grows connected regions, then merges touching regions of equal size until the board is valid. It samples candidates to favor smaller, readable regions. A separate flood-fill validator checks each generated board. Generation is randomized, not uniformly sampled.
 
-This first version generates completed solutions. Clue removal, uniqueness checking, and solving user-entered puzzles are future features; generated boards are not presented as unsolved puzzles.
+## Solve a puzzle
+
+Choose a size and click **Enter clues** for a blank editable grid. Enter positive whole numbers (up to the number of cells), leaving unknown cells blank, then click **Solve**. Arrow keys move between cells. The completed board marks original clues in bold and underlines them. **Edit clues** restores only your original clues; **Clear clues** resets the editor. Changing size starts a blank grid.
+
+The solver performs exact connected-region backtracking in a Web Worker, preserving clues and allowing regions with no clues. It returns one valid completion and does not claim uniqueness. A 10-second search budget and Cancel button keep difficult or sparse puzzles from blocking the page. A timeout is reported separately from a proven contradiction; adding clues can help. Tests cover partial puzzles, conflicting clues, unclued regions, multi-digit clues, all supported dimensions through generated-board checks, and timeout handling.
+
+Automatic clue removal and uniqueness checking are future features.
