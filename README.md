@@ -15,7 +15,7 @@ The generator grows connected regions, then merges touching regions of equal siz
 
 ## Solve a puzzle
 
-Choose the row and column counts and click **Enter clues** for a blank editable grid. Enter positive whole numbers (up to the number of cells), leaving unknown cells blank, then click **Solve**. Arrow keys move between cells. The completed board shows original clues in black (bold and underlined) and solver-filled numbers in blue. **Edit clues** restores only your original clues; **Clear clues** resets the editor. Changing either dimension starts a blank grid.
+Choose the row and column counts and click **Enter clues** for a blank editable grid. Enter positive whole numbers (up to the number of cells), leaving unknown cells blank, then click **Solve**. Arrow keys move between cells. The completed board shows original clues in black (bold) and solver-filled numbers in blue. **Edit clues** restores only your original clues; **Clear clues** resets the editor. Changing either dimension starts a blank grid.
 
 The solver performs exact connected-region backtracking in a Web Worker, preserving clues and allowing regions with no clues. It returns one valid completion and does not claim uniqueness. A 10-second search budget and Cancel button keep difficult or sparse puzzles from blocking the page. A timeout is reported separately from a proven contradiction; adding clues can help. Tests cover partial puzzles, conflicting clues, unclued regions, multi-digit clues, all supported dimensions through generated-board checks, and timeout handling.
 
