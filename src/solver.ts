@@ -1,18 +1,23 @@
 import { neighbors, isValidBoard, type Board } from './generator.ts';
 
 export type SolveResult = { status: 'solved'; board: Board } | { status: 'impossible' | 'timeout' | 'invalid' };
+export type SolutionCountResult =
+  | { status: 'complete'; count: number; board?: Board }
+  | { status: 'timeout' | 'invalid'; count: number };
 
 /** Exact region-cover search. Blank cells may form regions with no clues. */
-export function solveBoard(size: number, clues: number[], timeLimitMs = 10000): SolveResult {
+function searchSolutions(size: number, clues: number[], timeLimitMs: number, limit: number): SolutionCountResult {
   const count = size * size;
   if (!Number.isInteger(size) || size < 3 || size > 15 || clues.length !== count ||
-      clues.some(value => !Number.isInteger(value) || value < 0 || value > count)) return { status: 'invalid' };
+      clues.some(value => !Number.isInteger(value) || value < 0 || value > count)) return { status: 'invalid', count: 0 };
   const deadline = performance.now() + timeLimitMs;
   const expired = Symbol('timeout');
   const checkTime = () => { if (performance.now() >= deadline) throw expired; };
   const adjacent = Array.from({ length: count }, (_, cell) => neighbors(cell, size));
   const values = Array<number>(count).fill(0);
   const regions = Array<number>(count).fill(-1);
+  const solutions = new Set<string>();
+  let firstBoard: Board | undefined;
 
   function allowed(cell: number, target: number): boolean {
     return values[cell] === 0 && (clues[cell] === 0 || clues[cell] === target) &&
@@ -39,7 +44,13 @@ export function solveBoard(size: number, clues: number[], timeLimitMs = 10000): 
       if (slack < bestSlack || (slack === bestSlack && clues[cell] < clues[seed])) { seed = cell; bestSlack = slack; }
     }
     if (seed < 0) seed = values.indexOf(0);
-    if (seed < 0) return isValidBoard({ size, values });
+    if (seed < 0) {
+      if (!isValidBoard({ size, values })) return false;
+      // Count distinct completed number grids, never region IDs or search paths.
+      solutions.add(values.join(','));
+      firstBoard ??= { size, values: [...values], regions: [...regions] };
+      return solutions.size >= limit;
+    }
     const remaining = values.filter(value => value === 0).length;
     const targets = clues[seed] ? [clues[seed]] : Array.from({ length: remaining }, (_, i) => i + 1);
     for (const target of targets) {
@@ -73,9 +84,21 @@ export function solveBoard(size: number, clues: number[], timeLimitMs = 10000): 
     return false;
   }
   try {
-    return search(0) ? { status: 'solved', board: { size, values, regions } } : { status: 'impossible' };
+    search(0);
+    return { status: 'complete', count: solutions.size, board: firstBoard };
   } catch (error) {
-    if (error === expired) return { status: 'timeout' };
+    if (error === expired) return { status: 'timeout', count: solutions.size };
     throw error;
   }
+}
+
+/** Count up to two solutions. Only complete + count === 1 proves uniqueness. */
+export function countSolutions(size: number, clues: number[], timeLimitMs = 10000): SolutionCountResult {
+  return searchSolutions(size, clues, timeLimitMs, 2);
+}
+
+export function solveBoard(size: number, clues: number[], timeLimitMs = 10000): SolveResult {
+  const result = searchSolutions(size, clues, timeLimitMs, 1);
+  if (result.status !== 'complete') return { status: result.status };
+  return result.board ? { status: 'solved', board: result.board } : { status: 'impossible' };
 }

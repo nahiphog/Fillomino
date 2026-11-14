@@ -19,5 +19,11 @@ Choose a size and click **Enter clues** for a blank editable grid. Enter positiv
 
 The solver performs exact connected-region backtracking in a Web Worker, preserving clues and allowing regions with no clues. It returns one valid completion and does not claim uniqueness. A 10-second search budget and Cancel button keep difficult or sparse puzzles from blocking the page. A timeout is reported separately from a proven contradiction; adding clues can help. Tests cover partial puzzles, conflicting clues, unclued regions, multi-digit clues, all supported dimensions through generated-board checks, and timeout handling.
 
-Automatic clue removal and uniqueness checking are future features.
+## Create a uniquely solvable puzzle
+
+Click **Generate**, then **Create Puzzle** to remove numbers from that completed grid. If you are in the clue editor, Create Puzzle first generates a new solution at the selected size. The resulting clue grid hides solution colors and region borders. Click **Solve** to reveal the completion, or copy the clues (blanks are `.`).
+
+Each tentative removal runs an exact search for up to two distinct completed number grids. A removal is accepted only if the search finishes with exactly one solution. Ambiguous removals and timed-out checks are reverted. The worker has a 12-second overall budget and a 250ms budget per check; a time limit may leave extra clues, but never weakens the uniqueness guarantee. This does not promise a minimum clue count or a particular difficulty. Cancel keeps the previous grid unchanged. Editing a clue clears the unique-solution label.
+
+Uniqueness tests compare the counter and small generated puzzles against an independent exhaustive enumeration of all 3×3 grids, with additional larger-grid and timeout regression checks.
 
