@@ -51,23 +51,23 @@ test('solution counting agrees with an independent exhaustive 3×3 oracle', () =
     const clues = solution.map(value => random() < .55 ? 0 : value);
     if (sample % 3 === 0) clues[Math.floor(random() * 9)] = 1 + Math.floor(random() * 9);
     const expected = Math.min(2, oracle.filter(values => matches(values, clues)).length);
-    const result = countSolutions(3, clues);
+    const result = countSolutions(3, 3, clues);
     assert.equal(result.status, 'complete');
     assert.equal(result.count, expected, `Wrong count for ${clues}`);
   }
 });
 
 test('counts unique, ambiguous, impossible, invalid and timed-out searches distinctly', () => {
-  assert.equal(countSolutions(3, [9,...Array(8).fill(0)]).count, 1);
-  assert.equal(countSolutions(3, Array(9).fill(0)).count, 2);
-  assert.equal(countSolutions(3, [1,1,...Array(7).fill(0)]).count, 0);
-  assert.equal(countSolutions(3, []).status, 'invalid');
-  assert.deepEqual(countSolutions(3, Array(9).fill(0), 0), { status: 'timeout', count: 0 });
+  assert.equal(countSolutions(3, 3, [9,...Array(8).fill(0)]).count, 1);
+  assert.equal(countSolutions(3, 3, Array(9).fill(0)).count, 2);
+  assert.equal(countSolutions(3, 3, [1,1,...Array(7).fill(0)]).count, 0);
+  assert.equal(countSolutions(3, 3, []).status, 'invalid');
+  assert.deepEqual(countSolutions(3, 3, Array(9).fill(0), 0), { status: 'timeout', count: 0 });
 });
 
 test('created puzzles have blanks and exactly one solution according to the independent oracle', () => {
   for (let seed = 1; seed <= 20; seed++) {
-    const random = seeded(seed), board = generateBoard(3, random);
+    const random = seeded(seed), board = generateBoard(3, 3, random);
     const original = structuredClone(board);
     const result = createPuzzle(board, { random });
     assert.ok(result.removed > 0);
@@ -80,30 +80,30 @@ test('created puzzles have blanks and exactly one solution according to the inde
 
 test('creates verified puzzles at larger sizes and solves back to the original grid', () => {
   for (const size of [4,6,15]) {
-    const random = seeded(size), board = generateBoard(size, random);
+    const random = seeded(size), board = generateBoard(size, size, random);
     const progress: number[] = [];
     const result = createPuzzle(board, { random, timeLimitMs: 2000, checkTimeLimitMs: 80, onProgress: p => progress.push(p.checked) });
     assert.ok(result.removed > 0, `No clues removed at size ${size}`);
     assert.equal(result.removed, result.clues.filter(value => value === 0).length);
     assert.ok(matches(board.values, result.clues));
     assert.equal(progress.at(-1), result.checked);
-    const counted = countSolutions(size, result.clues);
+    const counted = countSolutions(size, size, result.clues);
     assert.equal(counted.status, 'complete');
     assert.equal(counted.count, 1);
-    const solved = solveBoard(size, result.clues);
+    const solved = solveBoard(size, size, result.clues);
     assert.equal(solved.status, 'solved');
     if (solved.status === 'solved') assert.deepEqual(solved.board.values, board.values);
   }
 });
 
 test('unproved removals are restored and an exhausted budget preserves the solution', () => {
-  const board = generateBoard(3, seeded(9));
+  const board = generateBoard(3, 3, seeded(9));
   for (const options of [{ timeLimitMs: 0 }, { checkTimeLimitMs: 0 }]) {
     const result = createPuzzle(board, options);
     assert.equal(result.limited, true);
     assert.equal(result.removed, 0);
     assert.deepEqual(result.clues, board.values);
-    assert.ok(isValidBoard({ size: board.size, values: result.clues }));
+    assert.ok(isValidBoard({ rows: board.rows, columns: board.columns, values: result.clues }));
   }
-  assert.throws(() => createPuzzle({ size: 3, values: Array(9).fill(1), regions: [] } as Board));
+  assert.throws(() => createPuzzle({ rows: 3, columns: 3, values: Array(9).fill(1), regions: [] } as Board));
 });

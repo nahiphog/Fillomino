@@ -5,7 +5,7 @@ import { generateBoard, isValidBoard } from '../src/generator.ts';
 
 const example = '333122122553551533524552524412514221'.split('').map(Number);
 function check(size: number, clues: number[]) {
-  const result = solveBoard(size, clues);
+  const result = solveBoard(size, size, clues);
   assert.equal(result.status, 'solved');
   if (result.status !== 'solved') return;
   assert.ok(isValidBoard(result.board));
@@ -24,20 +24,20 @@ test('handles multi-digit clues and the largest grid', () => {
   check(4, [16, ...Array(15).fill(0)]);
 });
 test('rejects impossible clues without reporting a timeout', () => {
-  assert.equal(solveBoard(3, [1,1,0,0,0,0,0,0,0]).status, 'impossible');
-  assert.equal(solveBoard(3, [2,2,2,0,0,0,0,0,0]).status, 'impossible');
+  assert.equal(solveBoard(3, 3, [1,1,0,0,0,0,0,0,0]).status, 'impossible');
+  assert.equal(solveBoard(3, 3, [2,2,2,0,0,0,0,0,0]).status, 'impossible');
 });
 test('distinguishes invalid inputs and exhausted search time', () => {
-  assert.equal(solveBoard(3, [10,...Array(8).fill(0)]).status, 'invalid');
-  assert.equal(solveBoard(3, [NaN,...Array(8).fill(0)]).status, 'invalid');
-  assert.equal(solveBoard(3, []).status, 'invalid');
-  assert.equal(solveBoard(3, Array(9).fill(0), 0).status, 'timeout');
+  assert.equal(solveBoard(3, 3, [10,...Array(8).fill(0)]).status, 'invalid');
+  assert.equal(solveBoard(3, 3, [NaN,...Array(8).fill(0)]).status, 'invalid');
+  assert.equal(solveBoard(3, 3, []).status, 'invalid');
+  assert.equal(solveBoard(3, 3, Array(9).fill(0), 0).status, 'timeout');
 });
 test('solves deterministic generated boards with missing clues', () => {
   let seed = 23;
   const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
   for (const size of [3,4,5,6,10,15]) {
-    const board = generateBoard(size, random);
+    const board = generateBoard(size, size, random);
     check(size, board.values.map(value => random() < .25 ? 0 : value));
   }
 });

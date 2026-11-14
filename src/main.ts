@@ -6,11 +6,13 @@ import type { PuzzleWorkerMessage } from './puzzle.worker.ts';
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header><a class="brand" href="./"><span class="brand-mark">f.</span>fillomino<span class="brand-dot">®</span></a><span class="header-note">A LITTLE ROOM FOR LOGIC</span></header>
   <main><section class="intro"><div class="eyebrow"><span></span> THE NUMBER REGION PUZZLE</div><h1>Everything has<br>its <em>place.</em></h1><p>A grid of numbers. A collection of regions.<br>A satisfying little world where everything fits.</p></section>
-  <section class="workspace" aria-label="Fillomino generator"><aside><div class="section-label">01 / MAKE A GRID</div><h2>Start with a size.</h2><p>Choose your canvas. We’ll fill it with a complete, valid Fillomino solution.</p><form id="generate-form"><label for="size">Grid size <span>3–15</span></label><div class="size-input"><input id="size" type="number" min="3" max="15" step="1" value="6" required aria-describedby="size-help"><span id="dimensions">× 6</span></div><div id="size-help" class="hint">Rows × columns · always square</div><button class="generate" type="submit">Generate <span aria-hidden="true">↗</span></button></form><button id="create-puzzle" class="create-puzzle" type="button">Create Puzzle</button><div class="hint">Remove clues from this grid, keeping one solution.</div><div class="solver-actions"><button id="enter-clues" type="button">Enter clues</button><button id="solve" type="button">Solve</button><button id="cancel" type="button" hidden>Cancel</button></div><button id="clear-clues" class="text-button" type="button" hidden>Clear clues</button><p id="solver-help" class="hint" hidden>Enter numbers in the grid; leave unknown cells blank. Arrow keys move between cells.</p><label class="toggle"><input id="colors" type="checkbox" checked><span>Region colors</span></label><div class="rule-card"><span class="small-label">THE BEAUTY IS IN THE RULES</span><ol><li>Every region is connected edge to edge.</li><li>Each number tells you its region’s size.</li><li>Equal-sized regions never share an edge.</li></ol></div></aside>
+  <section class="workspace" aria-label="Fillomino generator"><aside><div class="section-label">01 / MAKE A GRID</div><h2>Start with a size.</h2><p>Choose your canvas. We’ll fill it with a complete, valid Fillomino solution.</p><form id="generate-form"><div class="dimension-inputs"><div><label for="rows">Rows <span>3–15</span></label><div class="size-input"><input id="rows" type="number" min="3" max="15" step="1" value="6" required aria-describedby="size-help"></div></div><div><label for="columns">Columns <span>3–15</span></label><div class="size-input"><input id="columns" type="number" min="3" max="15" step="1" value="6" required aria-describedby="size-help"></div></div></div><div id="size-help" class="hint">Rows × columns · set each dimension separately</div><button class="generate" type="submit">Generate <span aria-hidden="true">↗</span></button></form><button id="create-puzzle" class="create-puzzle" type="button">Create Puzzle</button><div class="hint">Remove clues from this grid, keeping one solution.</div><div class="solver-actions"><button id="enter-clues" type="button">Enter clues</button><button id="solve" type="button">Solve</button><button id="cancel" type="button" hidden>Cancel</button></div><button id="clear-clues" class="text-button" type="button" hidden>Clear clues</button><p id="solver-help" class="hint" hidden>Enter numbers in the grid; leave unknown cells blank. Arrow keys move between cells.</p><label class="toggle"><input id="colors" type="checkbox" checked><span>Region colors</span></label><div class="rule-card"><span class="small-label">THE BEAUTY IS IN THE RULES</span><ol><li>Every region is connected edge to edge.</li><li>Each number tells you its region’s size.</li><li>Equal-sized regions never share an edge.</li></ol></div></aside>
   <div class="board-panel"><div class="board-toolbar"><span id="board-title">YOUR COMPLETED GRID</span><span class="valid-badge">✓ Valid solution</span></div><div class="board-wrap"><div id="board" role="table" aria-label="Completed Fillomino grid"></div></div><div class="board-footer"><div id="stats"></div><button id="copy" type="button">Copy grid <span aria-hidden="true">↗</span></button></div><p id="status" role="status" aria-live="polite"></p></div></section>
   <footer><span>Small numbers. Beautiful possibilities.</span><span>FILLOMINO / GRID STUDIO</span></footer></main>`;
 
-const input = document.querySelector<HTMLInputElement>('#size')!;
+const rowsInput = document.querySelector<HTMLInputElement>('#rows')!;
+const columnsInput = document.querySelector<HTMLInputElement>('#columns')!;
+const validInputs = () => rowsInput.reportValidity() && columnsInput.reportValidity();
 const boardElement = document.querySelector<HTMLDivElement>('#board')!;
 const status = document.querySelector<HTMLParagraphElement>('#status')!;
 let board: Board;
@@ -42,14 +44,16 @@ function draw() {
   boardElement.classList.toggle('editing', editing);
 
   boardElement.replaceChildren();
-  boardElement.style.setProperty('--size', String(board.size));
-  boardElement.setAttribute('aria-label', `${editing ? 'Editable' : 'Completed'} ${board.size} by ${board.size} Fillomino grid`);
-  for (let row = 0; row < board.size; row++) {
+  boardElement.style.setProperty('--rows', String(board.rows));
+  boardElement.style.setProperty('--columns', String(board.columns));
+  document.querySelector<HTMLElement>('.board-wrap')!.style.width = `min(100%, ${445 * board.columns / Math.max(board.rows, board.columns)}px)`;
+  boardElement.setAttribute('aria-label', `${editing ? 'Editable' : 'Completed'} ${board.rows} by ${board.columns} Fillomino grid`);
+  for (let row = 0; row < board.rows; row++) {
     const rowElement = document.createElement('div');
     rowElement.className = 'board-row';
     rowElement.setAttribute('role', 'row');
-    for (let column = 0; column < board.size; column++) {
-      const index = row * board.size + column;
+    for (let column = 0; column < board.columns; column++) {
+      const index = row * board.columns + column;
       const cell = document.createElement('div');
       cell.className = 'cell';
       cell.setAttribute('role', 'cell');
@@ -63,16 +67,17 @@ function draw() {
           uniquePuzzle = false;
           badge.textContent = 'Clue editor';
           document.querySelector('#board-title')!.textContent = 'ENTER YOUR CLUES';
-          const valid = field.value === '' || (/^\d+$/.test(field.value) && Number(field.value) >= 1 && Number(field.value) <= board.size ** 2);
-          field.setCustomValidity(valid ? '' : `Enter a whole number from 1 to ${board.size ** 2}, or leave blank.`);
+          const valid = field.value === '' || (/^\d+$/.test(field.value) && Number(field.value) >= 1 && Number(field.value) <= board.rows * board.columns);
+          field.setCustomValidity(valid ? '' : `Enter a whole number from 1 to ${board.rows * board.columns}, or leave blank.`);
           field.setAttribute('aria-invalid', String(!valid));
           clues[index] = valid ? Number(field.value) : NaN;
           status.textContent = valid ? 'Clues updated. Click Solve when ready.' : field.validationMessage;
         });
         field.addEventListener('keydown', event => {
-          const offsets: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -board.size, ArrowDown: board.size };
+          const offsets: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -board.columns, ArrowDown: board.columns };
           if (!(event.key in offsets)) return;
           event.preventDefault();
+          if ((event.key === 'ArrowLeft' && column === 0) || (event.key === 'ArrowRight' && column === board.columns - 1)) return;
           const next = index + offsets[event.key];
           const fields = boardElement.querySelectorAll('input');
           if (next >= 0 && next < fields.length) { fields[next].focus(); fields[next].select(); }
@@ -84,42 +89,49 @@ function draw() {
         else if (clues.some(Boolean)) { cell.classList.add('filled'); cell.setAttribute('aria-label', `${board.values[index]}, solver-filled cell`); }
       }
       cell.style.setProperty('--cell-color', `var(--color-${(board.values[index] - 1) % 9})`);
-      if (!editing && column < board.size - 1 && board.regions[index] !== board.regions[index + 1]) cell.classList.add('edge-right');
-      if (!editing && row < board.size - 1 && board.regions[index] !== board.regions[index + board.size]) cell.classList.add('edge-bottom');
+      if (!editing && column < board.columns - 1 && board.regions[index] !== board.regions[index + 1]) cell.classList.add('edge-right');
+      if (!editing && row < board.rows - 1 && board.regions[index] !== board.regions[index + board.columns]) cell.classList.add('edge-bottom');
       rowElement.append(cell);
     }
     boardElement.append(rowElement);
   }
-  document.querySelector('#stats')!.textContent = editing ? `${board.size} × ${board.size} · blanks are unknown` : `${board.size} × ${board.size} grid  ·  ${new Set(board.regions).size} regions  ·  ${board.values.length} cells`;
+  document.querySelector('#stats')!.textContent = editing ? `${board.rows} × ${board.columns} · blanks are unknown` : `${board.rows} × ${board.columns} grid  ·  ${new Set(board.regions).size} regions  ·  ${board.values.length} cells`;
 }
 
 function render() {
   stopSolving();
-  board = generateBoard(Number(input.value));
+  board = generateBoard(Number(rowsInput.value), Number(columnsInput.value));
   if (!isValidBoard(board)) throw new Error('The generated grid did not pass validation. Please try again.');
-  clues = Array(board.size ** 2).fill(0); editing = false; uniquePuzzle = false; draw();
+  clues = Array(board.rows * board.columns).fill(0); editing = false; uniquePuzzle = false; draw();
 }
 
-function enterClues(clear = false) {
-  if (!input.reportValidity()) return;
+function enterClues(clear = false, focus = true) {
+  if (!validInputs()) return;
   stopSolving();
-  const size = Number(input.value);
-  if (clear || size !== board.size) { clues = Array(size ** 2).fill(0); uniquePuzzle = false; }
-  board = { size, values: Array(size ** 2).fill(0), regions: Array(size ** 2).fill(-1) };
+  const rows = Number(rowsInput.value), columns = Number(columnsInput.value);
+  if (clear || rows !== board.rows || columns !== board.columns) { clues = Array(rows * columns).fill(0); uniquePuzzle = false; }
+  board = { rows, columns, values: Array(rows * columns).fill(0), regions: Array(rows * columns).fill(-1) };
   editing = true; draw();
   status.textContent = 'Enter your clues, then click Solve. Blank cells will be filled in.';
-  boardElement.querySelector('input')?.focus();
+  if (focus) boardElement.querySelector('input')?.focus();
 }
 editButton.addEventListener('click', () => enterClues());
 clearButton.addEventListener('click', () => enterClues(true));
-input.addEventListener('change', () => { if (input.checkValidity()) enterClues(true); });
+for (const input of [rowsInput, columnsInput]) {
+  input.addEventListener('input', () => {
+    if (worker) { stopSolving(); status.textContent = 'Cancelled because the dimensions changed.'; }
+  });
+  input.addEventListener('change', () => {
+    if (rowsInput.checkValidity() && columnsInput.checkValidity()) enterClues(true, false);
+  });
+}
 cancelButton.addEventListener('click', () => { stopSolving(); status.textContent = 'Cancelled. Your grid and clues are unchanged.'; });
 createButton.addEventListener('click', () => {
-  if (!input.reportValidity()) return;
+  if (!validInputs()) return;
   stopSolving();
-  const size = Number(input.value);
+  const rows = Number(rowsInput.value), columns = Number(columnsInput.value);
   // Use the displayed completion, or generate a fresh one when in the editor.
-  const source = !editing && board.size === size ? board : undefined;
+  const source = !editing && board.rows === rows && board.columns === columns ? board : undefined;
   createButton.disabled = true; solveButton.disabled = true; cancelButton.hidden = false;
   boardElement.setAttribute('aria-busy', 'true');
   status.textContent = 'Creating puzzle… checking that every clue removal keeps exactly one solution.';
@@ -136,7 +148,7 @@ createButton.addEventListener('click', () => {
       if (message.type === 'error') { status.textContent = message.message; return; }
       const result = message.result;
       clues = result.clues;
-      board = { size: message.size, values: Array(clues.length).fill(0), regions: Array(clues.length).fill(-1) };
+      board = { rows: message.rows, columns: message.columns, values: Array(clues.length).fill(0), regions: Array(clues.length).fill(-1) };
       editing = true; uniquePuzzle = true; draw();
       status.textContent = result.removed
         ? `Puzzle created: ${clues.length - result.removed} clues, ${result.removed} blanks. Exactly one solution verified. Click Solve to reveal it.`
@@ -144,10 +156,11 @@ createButton.addEventListener('click', () => {
       if (result.limited && result.removed) status.textContent += ' Some clues were kept because checks reached their time limit.';
     };
     worker.onerror = () => { stopSolving(); status.textContent = 'Puzzle creation could not finish. Your grid is unchanged; please try again.'; };
-    worker.postMessage({ size, board: source });
+    worker.postMessage({ rows, columns, board: source });
   } catch { stopSolving(); status.textContent = 'Puzzle creation could not start in this browser. Your grid is unchanged.'; }
 });
 solveButton.addEventListener('click', () => {
+  if (!validInputs()) return;
   if (!editing) { enterClues(); return; }
   for (const field of Array.from(boardElement.querySelectorAll('input'))) if (!field.reportValidity()) return;
   if (!clues.some(Boolean)) { status.textContent = 'Enter at least one clue, or use Generate for a completed grid.'; return; }
@@ -169,21 +182,20 @@ solveButton.addEventListener('click', () => {
       } else status.textContent = result.status === 'impossible' ? 'No solution exists for these clues. Edit them and try again.' : result.status === 'timeout' ? 'Search reached the 10-second limit. A solution may still exist; add more clues and try again.' : 'Check your clues: use whole numbers between 1 and the number of cells.';
     };
     worker.onerror = () => { stopSolving(); status.textContent = 'The solver could not finish. Your clues are preserved; please try again.'; };
-    worker.postMessage({ size: board.size, clues: [...clues] });
+    worker.postMessage({ rows: board.rows, columns: board.columns, clues: [...clues] });
   } catch { stopSolving(); status.textContent = 'The solver could not start in this browser. Your clues are preserved.'; }
 });
 
-input.addEventListener('input', () => { document.querySelector('#dimensions')!.textContent = `× ${input.value || '—'}`; });
 document.querySelector('#generate-form')!.addEventListener('submit', event => {
   event.preventDefault();
-  if (!input.reportValidity()) return;
+  if (!validInputs()) return;
   try { render(); status.textContent = 'New grid generated. All regions checked and valid.'; }
   catch (error) { status.textContent = error instanceof Error ? error.message : 'Unable to generate grid.'; }
 });
 document.querySelector('#colors')!.addEventListener('change', event => { boardElement.classList.toggle('no-colors', !(event.target as HTMLInputElement).checked); });
 document.querySelector('#copy')!.addEventListener('click', async () => {
   const values = editing ? clues.map(value => Number.isFinite(value) && value > 0 ? value : '.') : board.values;
-  const text = Array.from({ length: board.size }, (_, row) => values.slice(row * board.size, (row + 1) * board.size).join(' ')).join('\n');
+  const text = Array.from({ length: board.rows }, (_, row) => values.slice(row * board.columns, (row + 1) * board.columns).join(' ')).join('\n');
   try { await navigator.clipboard.writeText(text); status.textContent = 'Grid copied. Numbers are separated by spaces.'; }
   catch { status.textContent = 'Clipboard unavailable. Select the grid’s numbers to copy them.'; }
 });

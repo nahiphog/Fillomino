@@ -12,7 +12,7 @@ export type PuzzleOptions = {
 
 /** Every accepted removal has an exhaustive uniqueness proof. */
 export function createPuzzle(board: Board, options: PuzzleOptions = {}): PuzzleResult {
-  if (board.size < 3 || board.size > 15 || !isValidBoard(board)) throw new Error('A valid completed grid is required.');
+  if (!isValidBoard(board)) throw new Error('A valid completed grid is required.');
   const { random = Math.random, timeLimitMs = 12000, checkTimeLimitMs = 250, onProgress } = options;
   const clues = [...board.values];
   const order = clues.map((_, index) => index);
@@ -28,7 +28,7 @@ export function createPuzzle(board: Board, options: PuzzleOptions = {}): PuzzleR
     if (remaining <= 0) { limited = true; break; }
     const value = clues[cell];
     clues[cell] = 0;
-    const result = countSolutions(board.size, clues, Math.min(checkTimeLimitMs, remaining));
+    const result = countSolutions(board.rows, board.columns, clues, Math.min(checkTimeLimitMs, remaining));
     if (result.status === 'complete' && result.count === 1) removed++;
     else {
       clues[cell] = value;
