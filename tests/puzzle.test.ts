@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { countSolutions, solveBoard } from '../src/solver.ts';
+import { analyzeSolutions, countSolutions, solveBoard } from '../src/solver.ts';
 import { createPuzzle } from '../src/puzzle.ts';
 import { generateBoard, isValidBoard, type Board } from '../src/generator.ts';
+import { Constraints, newMetrics } from '../src/constraints.ts';
 
 function seeded(seed: number) {
   return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
@@ -46,14 +47,24 @@ const matches = (values: number[], clues: number[]) => clues.every((clue, i) => 
 test('solution counting agrees with an independent exhaustive 3×3 oracle', () => {
   assert.ok(oracle.length > 1);
   const random = seeded(37);
-  for (let sample = 0; sample < 150; sample++) {
+  for (let sample = 0; sample < 1500; sample++) {
     const solution = oracle[Math.floor(random() * oracle.length)];
     const clues = solution.map(value => random() < .55 ? 0 : value);
     if (sample % 3 === 0) clues[Math.floor(random() * 9)] = 1 + Math.floor(random() * 9);
-    const expected = Math.min(2, oracle.filter(values => matches(values, clues)).length);
+    const compatible = oracle.filter(values => matches(values, clues));
+    const expected = Math.min(2, compatible.length);
+    const propagated = new Constraints(3, 3, clues, newMetrics(), () => {});
+    const consistent = propagated.propagate();
+    if (compatible.length) {
+      assert.ok(consistent);
+      for (const values of compatible) assert.ok(values.every((value, i) => propagated.has(i, value)), `Deduction removed a valid completion for ${clues}`);
+    }
     const result = countSolutions(3, 3, clues);
     assert.equal(result.status, 'complete');
     assert.equal(result.count, expected, `Wrong count for ${clues}`);
+    const pure = analyzeSolutions(3, 3, clues, { regionProbeMs: 0 }).result;
+    assert.equal(pure.status, 'complete');
+    assert.equal(pure.count, expected, `Wrong propagation count for ${clues}`);
   }
 });
 
