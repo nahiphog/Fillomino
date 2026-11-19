@@ -1,41 +1,67 @@
 import { isValidBoard, type Board } from './generator.ts';
 import { countSolutions } from './solver.ts';
 
-export type PuzzleProgress = { checked: number; total: number; removed: number };
-export type PuzzleResult = { clues: number[]; removed: number; checked: number; limited: boolean };
+export type PuzzleProgress = { checked: number; total: number; removed: number; pending: number; round: number; checkBudgetMs: number };
+export type PuzzleResult = { clues: number[]; removed: number; checked: number; limited: boolean; minimal: boolean; pending: number };
 export type PuzzleOptions = {
   random?: () => number;
+  /** Optional caller budget. Production digging has no overall deadline. */
   timeLimitMs?: number;
   checkTimeLimitMs?: number;
   onProgress?: (progress: PuzzleProgress) => void;
+  now?: () => number;
+  check?: typeof countSolutions;
 };
 
-/** Every accepted removal has an exhaustive uniqueness proof. */
+/** Dig until every remaining clue is proved necessary. This is locally minimal,
+ * not necessarily the fewest clues achievable over all removal orders. */
 export function createPuzzle(board: Board, options: PuzzleOptions = {}): PuzzleResult {
   if (!isValidBoard(board)) throw new Error('A valid completed grid is required.');
-  const { random = Math.random, timeLimitMs = 12000, checkTimeLimitMs = 250, onProgress } = options;
+  const { random = Math.random, timeLimitMs = Infinity, checkTimeLimitMs = 250,
+    onProgress, now = () => performance.now(), check = countSolutions } = options;
   const clues = [...board.values];
-  const order = clues.map((_, index) => index);
-  for (let i = order.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [order[i], order[j]] = [order[j], order[i]];
-  }
-  const deadline = performance.now() + timeLimitMs;
-  let removed = 0, checked = 0, limited = false;
-  onProgress?.({ checked, total: order.length, removed });
-  for (const cell of order) {
-    const remaining = deadline - performance.now();
-    if (remaining <= 0) { limited = true; break; }
-    const value = clues[cell];
-    clues[cell] = 0;
-    const result = countSolutions(board.rows, board.columns, clues, Math.min(checkTimeLimitMs, remaining));
-    if (result.status === 'complete' && result.count === 1) removed++;
-    else {
-      clues[cell] = value;
-      if (result.status === 'timeout') limited = true;
+  let pending = clues.map((_, index) => index);
+  const deadline = now() + timeLimitMs;
+  let removed = 0, checked = 0, round = 0, budget = checkTimeLimitMs;
+  const progress = () => onProgress?.({ checked, total: clues.length, removed, pending: pending.length, round, checkBudgetMs: budget });
+  progress();
+  if (!(budget > 0)) return { clues, removed, checked, limited: true, minimal: false, pending: pending.length };
+  while (pending.length && now() < deadline) {
+    round++;
+    for (let i = pending.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [pending[i], pending[j]] = [pending[j], pending[i]];
     }
-    checked++;
-    onProgress?.({ checked, total: order.length, removed });
+    const order = [...pending];
+    for (const cell of order) {
+      const remaining = deadline - now();
+      if (remaining <= 0) break;
+      progress();
+      const value = clues[cell];
+      clues[cell] = 0;
+      let result;
+      try { result = check(board.rows, board.columns, clues, Math.min(budget, remaining)); }
+      catch (error) { clues[cell] = value; throw error; }
+      checked++;
+      if (result.status === 'complete' && result.count === 1) {
+        removed++;
+        pending = pending.filter(index => index !== cell);
+      } else {
+        clues[cell] = value;
+        if (result.status === 'complete' && result.count >= 2) {
+          // Removing more clues cannot eliminate either of these solutions.
+          // This clue stays necessary for all subsequent accepted removals.
+          pending = pending.filter(index => index !== cell);
+        } else if (result.status !== 'timeout') {
+          // The original completed board always satisfies every subset of clues.
+          throw new Error('A clue subset unexpectedly lost its known solution.');
+        }
+        // A timeout proves nothing. Keep this clue pending for the next round.
+      }
+      progress();
+    }
+    budget *= 4;
   }
-  return { clues, removed, checked, limited };
+  const minimal = pending.length === 0;
+  return { clues, removed, checked, limited: !minimal, minimal, pending: pending.length };
 }

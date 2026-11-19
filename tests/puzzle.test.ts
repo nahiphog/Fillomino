@@ -81,11 +81,18 @@ test('created puzzles have blanks and exactly one solution according to the inde
     const random = seeded(seed), board = generateBoard(3, 3, random);
     const original = structuredClone(board);
     const result = createPuzzle(board, { random });
+    assert.equal(result.minimal, true);
+    assert.equal(result.pending, 0);
     assert.ok(result.removed > 0);
     assert.deepEqual(board, original, 'Must not mutate the source solution');
     const solutions = oracle.filter(values => matches(values, result.clues));
     assert.equal(solutions.length, 1);
     assert.deepEqual(solutions[0], board.values);
+    for (let cell = 0; cell < result.clues.length; cell++) {
+      if (!result.clues[cell]) continue;
+      const dug = [...result.clues]; dug[cell] = 0;
+      assert.ok(oracle.filter(values => matches(values, dug)).length >= 2, `Clue ${cell} was still removable`);
+    }
   }
 });
 
@@ -112,9 +119,67 @@ test('unproved removals are restored and an exhausted budget preserves the solut
   for (const options of [{ timeLimitMs: 0 }, { checkTimeLimitMs: 0 }]) {
     const result = createPuzzle(board, options);
     assert.equal(result.limited, true);
+    assert.equal(result.minimal, false);
+    assert.ok(result.pending > 0);
     assert.equal(result.removed, 0);
     assert.deepEqual(result.clues, board.values);
     assert.ok(isValidBoard({ rows: board.rows, columns: board.columns, values: result.clues }));
   }
   assert.throws(() => createPuzzle({ rows: 3, columns: 3, values: Array(9).fill(1), regions: [] } as Board));
+});
+
+test('inconclusive checks, including one found solution, are retried with larger budgets', () => {
+  const board = generateBoard(3, 3, seeded(17));
+  const budgets: number[] = [];
+  let calls = 0;
+  const result = createPuzzle(board, {
+    random: seeded(21), checkTimeLimitMs: 250,
+    check: (rows, columns, clues, budget) => {
+      budgets.push(budget!);
+      if (++calls <= 9) {
+        assert.equal(clues.filter(Boolean).length, 8, 'Unproved removal must be restored');
+        return { status: 'timeout', count: 1 };
+      }
+      return countSolutions(rows, columns, clues, budget);
+    },
+  });
+  assert.deepEqual(budgets.slice(0, 9), Array(9).fill(250));
+  assert.ok(budgets.slice(9).every(budget => budget >= 1000));
+  assert.equal(result.minimal, true);
+  assert.equal(result.checked, 18);
+  assert.equal(oracle.filter(values => matches(values, result.clues)).length, 1);
+  for (let cell = 0; cell < 9; cell++) {
+    if (!result.clues[cell]) continue;
+    const dug = [...result.clues]; dug[cell] = 0;
+    assert.ok(oracle.filter(values => matches(values, dug)).length > 1);
+  }
+});
+
+test('an optional overall deadline reports unfinished digging and never accepts a timeout', () => {
+  const board = generateBoard(3, 3, seeded(18));
+  let time = 0;
+  const result = createPuzzle(board, {
+    timeLimitMs: 5, now: () => time,
+    check: () => { time++; return { status: 'timeout', count: 1 }; },
+  });
+  assert.equal(result.minimal, false);
+  assert.equal(result.limited, true);
+  assert.equal(result.checked, 5);
+  assert.equal(result.pending, 9);
+  assert.deepEqual(result.clues, board.values);
+});
+
+test('finished rectangular puzzles have no removable clues', () => {
+  for (const [rows, columns] of [[3, 4], [4, 3]]) {
+    const result = createPuzzle(generateBoard(rows, columns, seeded(34)), { random: seeded(40) });
+    assert.equal(result.minimal, true);
+    assert.equal(countSolutions(rows, columns, result.clues).count, 1);
+    result.clues.forEach((value, cell) => {
+      if (!value) return;
+      const dug = [...result.clues]; dug[cell] = 0;
+      const count = countSolutions(rows, columns, dug);
+      assert.equal(count.status, 'complete');
+      assert.equal(count.count, 2);
+    });
+  }
 });

@@ -1,6 +1,6 @@
 # Fillomino
 
-A TypeScript website that generates fully completed Fillomino grids with independently selectable rows and columns, each from 3 to 15 (for example, 3×8 or 12×5). Generation, clue entry, solving, and unique puzzle creation all support rectangles. Cells remain square. Includes region borders, optional region colors, and copying a grid as space-separated numbers, one line per row.
+A TypeScript website that generates uniquely solvable Fillomino puzzles with independently selectable rows and columns, each from 3 to 15 (for example, 3×8 or 12×5). Generation, clue entry, solving, and unique puzzle creation all support rectangles. Cells remain square. Includes region borders, optional region colors, and copying a grid as space-separated numbers, one line per row.
 
 ## Run locally
 
@@ -21,9 +21,9 @@ The solver propagates per-cell candidate values to a fixed point in a Web Worker
 
 ## Create a uniquely solvable puzzle
 
-Click **Generate**, then **Create Puzzle** to remove numbers from that completed grid. If you are in the clue editor, Create Puzzle first generates a new solution at the selected dimensions. The resulting clue grid hides solution colors and region borders. Click **Solve** to reveal the completion, or copy the clues (blanks are `.`).
+Click **Generate** to generate a completed grid internally and dig clues automatically until no remaining clue can be removed. **Create Puzzle** digs the displayed completed grid. If you are in the clue editor, Create Puzzle first generates a new solution at the selected dimensions. The resulting clue grid hides solution colors and region borders. Click **Solve** to reveal the completion, or copy the clues (blanks are `.`).
 
-Each tentative removal runs an exact search for up to two distinct completed number grids. A removal is accepted only if the search finishes with exactly one solution. Ambiguous removals and timed-out checks are reverted. The worker has a 12-second overall budget and a 250ms budget per check; a time limit may leave extra clues, but never weakens the uniqueness guarantee. This does not promise a minimum clue count or a particular difficulty. Cancel keeps the previous grid unchanged. Editing a clue clears the unique-solution label.
+Each tentative removal runs an exact search for up to two distinct completed number grids. A removal is accepted only if the search finishes with exactly one solution. Ambiguous removals are reverted and proved necessary. Timed-out checks are reverted and retried in randomized rounds with four times the previous check budget, starting at 250ms. Production digging has no overall deadline: completion means every remaining clue is proved necessary. Removing other clues can only add solutions, so a clue already proved necessary needs no retest. This produces a locally minimal puzzle, not necessarily the globally fewest clues or a particular difficulty. Large puzzles can take considerable time. Optional caller time limits return an explicitly unfinished result, never a minimality claim. Cancel keeps the previous grid unchanged. Editing a clue clears the unique-solution label.
 
 Uniqueness tests compare both pure propagation search and the hybrid engine against an independent exhaustive enumeration of all 3×3 grids across 1,500 clue sets. Every compatible reference completion must survive propagation. Additional tests cover deduction rules, undo restoration, comparisons with the previous solver, larger rectangles, and a deterministic timeout after finding one solution. A timed-out region-search attempt never contributes counts to the fallback search.
 
