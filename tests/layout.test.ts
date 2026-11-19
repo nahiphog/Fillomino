@@ -8,6 +8,23 @@ function seeded(seed: number) {
   return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 }
 
+test('default custom search continues beyond 1,000 attempts and 30 seconds', () => {
+  const board = generateBoard(3, 3, seeded(41));
+  let attempts = 0, time = 0;
+  const result = createLayoutPuzzle(3, 3, Array(9).fill(true), {
+    now: () => time,
+    generate: () => board,
+    check: (...args) => {
+      attempts++; time += 100;
+      return attempts <= 1001 ? { status: 'timeout', count: 1 } : countSolutions(...args);
+    },
+  });
+  assert.equal(result.status, 'found');
+  assert.equal(result.attempts, 1002);
+  assert.equal(result.timeouts, 1001);
+  assert.ok(time > 30000);
+});
+
 test('layout search keeps exactly the highlighted givens on square, wide and tall grids', () => {
   for (const [rows, columns] of [[3, 3], [3, 5], [5, 3]]) {
     const board = generateBoard(rows, columns, seeded(17));

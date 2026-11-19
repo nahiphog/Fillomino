@@ -6,6 +6,7 @@ export type LayoutResult =
   | { status: 'found'; clues: number[]; board: Board; attempts: number; timeouts: number }
   | { status: 'not-found' | 'invalid'; attempts: number; timeouts: number };
 export type LayoutOptions = {
+  /** Optional budgets for callers/tests; the interactive search is unlimited. */
   timeLimitMs?: number;
   maxAttempts?: number;
   checkTimeLimitMs?: number;
@@ -24,7 +25,7 @@ export function createLayoutPuzzle(rows: number, columns: number, mask: boolean[
       mask.some(value => typeof value !== 'boolean') || !mask.some(Boolean)) {
     return { status: 'invalid', attempts, timeouts };
   }
-  const { timeLimitMs = 30000, maxAttempts = 1000, checkTimeLimitMs = 500,
+  const { timeLimitMs = Infinity, maxAttempts = Infinity, checkTimeLimitMs = 500,
     random = Math.random, now = () => performance.now(), generate = generateBoard,
     check = countSolutions, onProgress } = options;
   const deadline = now() + timeLimitMs;

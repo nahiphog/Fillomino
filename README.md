@@ -22,7 +22,7 @@ The generator grows connected regions, then merges touching regions of equal siz
 
 ## Choose your own clue positions
 
-Select **Choose clue positions** under Puzzle mode, set rows and columns, and
+Select **Custom build** under Puzzle mode, set rows and columns, and
 click individual grid cells to highlight them (Tab and Space also work). Use
 **Select all** or **Clear highlights** to adjust the selection. Changing either
 dimension clears the layout. Click **Generate from highlights** to search for
@@ -31,10 +31,10 @@ everywhere else. The exact layout takes precedence over rotational symmetry.
 
 The search generates random valid completed boards and checks the resulting
 clue masks with the exact solution counter. Only a completed count of one is
-accepted; timeouts are inconclusive. Each search tries up to 1,000 candidates
-or 30 seconds, with up to 500ms per uniqueness check. Failure to find a puzzle
-is not a proof that the layout is impossible. Retry or add highlights; Cancel
-preserves the layout. **Edit highlighted cells** restores your selection after
+accepted; timeouts are inconclusive. Custom build has no overall time or attempt
+limit: it keeps searching until a verified unique puzzle is found or you click
+Cancel. Individual uniqueness checks have a 500ms budget; an inconclusive check
+skips that candidate and does not stop the search. Cancel preserves the layout. **Edit highlighted cells** restores your selection after
 success, and Solve / Hide solution work as usual. This mode does not remove
 highlighted clues or promise minimality.
 
