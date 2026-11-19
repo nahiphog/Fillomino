@@ -4,6 +4,13 @@ A TypeScript website that generates uniquely solvable Fillomino puzzles with ind
 
 ## Run locally
 
+The GitHub Pages site is published at https://nahiphog.github.io/Fillomino/.
+The `Deploy Fillomino to GitHub Pages` workflow tests and builds each push to
+`main`, then deploys `dist/`. It can also be run manually from GitHub Actions.
+The Pages build uses `npm run build -- --base=/Fillomino/` so assets and Web
+Workers load correctly under the repository path. The normal local/Sites build
+continues to use the root path.
+
 ```sh
 npm install
 npm run dev
