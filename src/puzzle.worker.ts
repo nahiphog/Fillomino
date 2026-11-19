@@ -6,26 +6,29 @@ export type PuzzleWorkerMessage =
   | { type: 'complete'; rows: number; columns: number; result: PuzzleResult }
   | { type: 'error'; message: string };
 
-self.onmessage = async (event: MessageEvent<{ rows: number; columns: number; board?: Board }>) => {
+export type PuzzleWorkerRequest =
+  | { type: 'start'; rows: number; columns: number; board?: Board }
+  | { type: 'next' };
+
+let board: Board | undefined;
+let steps: ReturnType<typeof digPuzzle> | undefined;
+
+self.onmessage = (event: MessageEvent<PuzzleWorkerRequest>) => {
   try {
-    const board = event.data.board ?? generateBoard(event.data.rows, event.data.columns);
-    const steps = digPuzzle(board);
-    let step = steps.next();
-    let lastRemoved = -1;
-    while (!step.done) {
-      const progress = step.value;
-      self.postMessage({ type: 'progress', rows: board.rows, columns: board.columns, progress } satisfies PuzzleWorkerMessage);
-      if (progress.removed !== lastRemoved) {
-        // Leave each accepted removal on screen long enough to see it, even
-        // on tiny puzzles whose uniqueness checks finish within one frame.
-        await new Promise(resolve => setTimeout(resolve, lastRemoved < 0 ? 350 : 100));
-        lastRemoved = progress.removed;
-      }
-      step = steps.next();
+    if (event.data.type === 'start') {
+      board = event.data.board ?? generateBoard(event.data.rows, event.data.columns);
+      steps = digPuzzle(board);
     }
-    const result = step.value;
-    self.postMessage({ type: 'complete', rows: board.rows, columns: board.columns, result } satisfies PuzzleWorkerMessage);
+    if (!steps || !board) return;
+    const step = steps.next();
+    if (step.done) {
+      steps = undefined;
+      self.postMessage({ type: 'complete', rows: board.rows, columns: board.columns, result: step.value } satisfies PuzzleWorkerMessage);
+    } else {
+      self.postMessage({ type: 'progress', rows: board.rows, columns: board.columns, progress: step.value } satisfies PuzzleWorkerMessage);
+    }
   } catch {
+    steps = undefined;
     self.postMessage({ type: 'error', message: 'Unable to create a puzzle. Your grid is unchanged; please try again.' } satisfies PuzzleWorkerMessage);
   }
 };

@@ -7,3 +7,13 @@
 .create-puzzle{width:100%;margin-top:10px;padding:13px 18px;border:1px solid #bfcab6;border-radius:7px;background:#e2ead8;color:#304b36;font-size:13px;font-weight:700;cursor:pointer}.create-puzzle:hover{background:#d5e1c8}.create-puzzle:disabled{opacity:.5;cursor:wait}.create-puzzle+.hint{margin-bottom:12px}
 
 .dimension-inputs{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dimension-inputs .size-input input{width:100%}.dimension-inputs>div{min-width:0}
+
+.workspace{padding-top:32px}
+.digging-controls{margin-top:18px}
+.digging-controls label{display:block;font-size:14px;font-weight:600;margin-bottom:8px}
+.digging-controls select{width:100%;font:inherit;font-size:14px;color:#304b36;background:#faf9f5;border:1px solid #bfcab6;border-radius:7px;padding:10px}
+.digging-controls .hint{font-size:12px;line-height:1.5;margin:8px 0 12px}
+.playback-actions{display:flex;gap:9px}
+.playback-actions button{flex:1;border:1px solid #bfcab6;border-radius:7px;padding:10px;background:#e2ead8;color:#304b36;font-size:14px}
+.playback-actions button:disabled{opacity:.45;cursor:default}
+.digging-controls select:focus-visible{outline:2px solid #6f865d;outline-offset:3px}
