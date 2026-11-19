@@ -21,6 +21,7 @@ let editing = false;
 let uniquePuzzle = false;
 let minimalPuzzle = false;
 let worker: Worker | undefined;
+let restoreBeforeDigging: (() => void) | undefined;
 const solveButton = document.querySelector<HTMLButtonElement>('#solve')!;
 const editButton = document.querySelector<HTMLButtonElement>('#enter-clues')!;
 const clearButton = document.querySelector<HTMLButtonElement>('#clear-clues')!;
@@ -29,9 +30,14 @@ const createButton = document.querySelector<HTMLButtonElement>('#create-puzzle')
 
 function stopSolving() {
   worker?.terminate(); worker = undefined;
+  const restore = restoreBeforeDigging;
+  restoreBeforeDigging = undefined;
+  restore?.();
   cancelButton.hidden = true;
   solveButton.disabled = false;
   createButton.disabled = false;
+  editButton.disabled = false;
+  clearButton.disabled = false;
   boardElement.removeAttribute('aria-busy');
 }
 
@@ -126,7 +132,15 @@ function startDigging(fresh: boolean) {
   const rows = Number(rowsInput.value), columns = Number(columnsInput.value);
   // Use the displayed completion, or generate a fresh one when in the editor.
   const source = !fresh && !editing && board.rows === rows && board.columns === columns ? board : undefined;
+  const previous = { board, clues, editing, uniquePuzzle, minimalPuzzle };
+  restoreBeforeDigging = () => {
+    ({ board, clues, editing, uniquePuzzle, minimalPuzzle } = previous);
+    draw();
+  };
+  let previewStarted = false;
   createButton.disabled = true; solveButton.disabled = true; cancelButton.hidden = false;
+  editButton.disabled = true; clearButton.disabled = true;
+  boardElement.querySelectorAll('input').forEach(field => { field.readOnly = true; });
   boardElement.setAttribute('aria-busy', 'true');
   status.textContent = 'Digging… removing clues only when exactly one solution remains. Difficult checks may take time; Cancel stops the search.';
   try {
@@ -135,11 +149,27 @@ function startDigging(fresh: boolean) {
       const message = event.data;
       if (message.type === 'progress') {
         const { checked, removed, pending, round, checkBudgetMs } = message.progress;
+        clues = message.progress.clues;
+        if (!previewStarted) {
+          board = { rows: message.rows, columns: message.columns, values: Array(clues.length).fill(0), regions: Array(clues.length).fill(-1) };
+          editing = true; uniquePuzzle = true; minimalPuzzle = false;
+          draw();
+          boardElement.querySelectorAll('input').forEach(field => { field.readOnly = true; });
+          document.querySelector('#board-title')!.textContent = 'DIGGING YOUR PUZZLE';
+          document.querySelector<HTMLElement>('#solver-help')!.hidden = true;
+          previewStarted = true;
+        } else {
+          boardElement.querySelectorAll('input').forEach((field, index) => {
+            field.value = clues[index] ? String(clues[index]) : '';
+          });
+        }
+        document.querySelector('#stats')!.textContent = `${board.rows} × ${board.columns} · ${clues.length - removed} clues · ${removed} removed`;
         status.textContent = `Digging… ${removed} removed; ${pending} clues still to decide; ${checked} checks. Round ${round || 1}${round > 1 ? ` (retrying with up to ${Math.round(checkBudgetMs / 1000)}s per check)` : ''}.`;
         return;
       }
+      if (message.type === 'error') { stopSolving(); status.textContent = message.message; return; }
+      restoreBeforeDigging = undefined;
       stopSolving();
-      if (message.type === 'error') { status.textContent = message.message; return; }
       const result = message.result;
       clues = result.clues;
       board = { rows: message.rows, columns: message.columns, values: Array(clues.length).fill(0), regions: Array(clues.length).fill(-1) };

@@ -1,7 +1,7 @@
 import { isValidBoard, type Board } from './generator.ts';
 import { countSolutions } from './solver.ts';
 
-export type PuzzleProgress = { checked: number; total: number; removed: number; pending: number; round: number; checkBudgetMs: number };
+export type PuzzleProgress = { checked: number; total: number; removed: number; pending: number; round: number; checkBudgetMs: number; clues: number[] };
 export type PuzzleResult = { clues: number[]; removed: number; checked: number; limited: boolean; minimal: boolean; pending: number };
 export type PuzzleOptions = {
   random?: () => number;
@@ -16,15 +16,27 @@ export type PuzzleOptions = {
 /** Dig until every remaining clue is proved necessary. This is locally minimal,
  * not necessarily the fewest clues achievable over all removal orders. */
 export function createPuzzle(board: Board, options: PuzzleOptions = {}): PuzzleResult {
+  const steps = digPuzzle(board, options);
+  let step = steps.next();
+  while (!step.done) {
+    options.onProgress?.(step.value);
+    step = steps.next();
+  }
+  return step.value;
+}
+
+/** Each snapshot contains only confirmed removals, never a tentative check.
+ * Yielding lets the worker pace visible removals without delaying other checks. */
+export function* digPuzzle(board: Board, options: PuzzleOptions = {}): Generator<PuzzleProgress, PuzzleResult> {
   if (!isValidBoard(board)) throw new Error('A valid completed grid is required.');
   const { random = Math.random, timeLimitMs = Infinity, checkTimeLimitMs = 250,
-    onProgress, now = () => performance.now(), check = countSolutions } = options;
+    now = () => performance.now(), check = countSolutions } = options;
   const clues = [...board.values];
   let pending = clues.map((_, index) => index);
   const deadline = now() + timeLimitMs;
   let removed = 0, checked = 0, round = 0, budget = checkTimeLimitMs;
-  const progress = () => onProgress?.({ checked, total: clues.length, removed, pending: pending.length, round, checkBudgetMs: budget });
-  progress();
+  const progress = (): PuzzleProgress => ({ checked, total: clues.length, removed, pending: pending.length, round, checkBudgetMs: budget, clues: [...clues] });
+  yield progress();
   if (!(budget > 0)) return { clues, removed, checked, limited: true, minimal: false, pending: pending.length };
   while (pending.length && now() < deadline) {
     round++;
@@ -36,7 +48,7 @@ export function createPuzzle(board: Board, options: PuzzleOptions = {}): PuzzleR
     for (const cell of order) {
       const remaining = deadline - now();
       if (remaining <= 0) break;
-      progress();
+      yield progress();
       const value = clues[cell];
       clues[cell] = 0;
       let result;
@@ -58,7 +70,7 @@ export function createPuzzle(board: Board, options: PuzzleOptions = {}): PuzzleR
         }
         // A timeout proves nothing. Keep this clue pending for the next round.
       }
-      progress();
+      yield progress();
     }
     budget *= 4;
   }

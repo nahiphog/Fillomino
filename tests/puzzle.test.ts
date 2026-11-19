@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeSolutions, countSolutions, solveBoard } from '../src/solver.ts';
-import { createPuzzle } from '../src/puzzle.ts';
+import { createPuzzle, digPuzzle } from '../src/puzzle.ts';
 import { generateBoard, isValidBoard, type Board } from '../src/generator.ts';
 import { Constraints, newMetrics } from '../src/constraints.ts';
 
@@ -43,6 +43,29 @@ function allThreeByThreeSolutions(): number[][] {
 }
 const oracle = allThreeByThreeSolutions();
 const matches = (values: number[], clues: number[]) => clues.every((clue, i) => !clue || clue === values[i]);
+
+test('live digging snapshots reveal only confirmed unique removals and stay immutable', () => {
+  const board = generateBoard(3, 3, seeded(27));
+  const steps = digPuzzle(board, { random: seeded(14) });
+  const snapshots: number[][] = [];
+  let step = steps.next();
+  while (!step.done) {
+    const progress = step.value;
+    assert.equal(oracle.filter(values => matches(values, progress.clues)).length, 1);
+    assert.equal(progress.clues.filter(value => !value).length, progress.removed);
+    if (snapshots.length) {
+      const previous = snapshots.at(-1)!;
+      assert.ok(previous.every((value, i) => value === progress.clues[i] || (value > 0 && progress.clues[i] === 0)));
+      assert.ok(previous.filter(Boolean).length - progress.clues.filter(Boolean).length <= 1);
+    }
+    snapshots.push(progress.clues);
+    step = steps.next();
+  }
+  assert.deepEqual(snapshots[0], board.values, 'The first frame must show the full grid');
+  assert.deepEqual(snapshots.at(-1), step.value.clues);
+  assert.equal(step.value.minimal, true);
+  assert.deepEqual(step.value, createPuzzle(board, { random: seeded(14) }));
+});
 
 test('solution counting agrees with an independent exhaustive 3×3 oracle', () => {
   assert.ok(oracle.length > 1);
