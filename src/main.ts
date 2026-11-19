@@ -66,6 +66,7 @@ resumeButton.addEventListener('click', () => {
 });
 
 function draw() {
+  solveButton.textContent = editing ? 'Solve' : 'Hide solution';
   document.querySelector('#board-title')!.textContent = editing ? uniquePuzzle ? 'YOUR FILLOMINO PUZZLE' : 'ENTER YOUR CLUES' : 'YOUR COMPLETED GRID';
   const badge = document.querySelector<HTMLElement>('.valid-badge')!;
   badge.textContent = minimalPuzzle ? '✓ Unique · fully dug' : uniquePuzzle ? '✓ Unique solution' : editing ? 'Clue editor' : '✓ Valid solution';
@@ -221,7 +222,11 @@ function startDigging(fresh: boolean) {
 createButton.addEventListener('click', () => startDigging(false));
 solveButton.addEventListener('click', () => {
   if (!validInputs()) return;
-  if (!editing) { enterClues(); return; }
+  if (!editing) {
+    enterClues(false, false);
+    status.textContent = 'Solution hidden. Your original clues and blanks are restored. Click Solve to reveal the solution again.';
+    return;
+  }
   for (const field of Array.from(boardElement.querySelectorAll('input'))) if (!field.reportValidity()) return;
   if (!clues.some(Boolean)) { status.textContent = 'Enter at least one clue, or use Generate to create a puzzle.'; return; }
   stopSolving();

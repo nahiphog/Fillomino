@@ -22,6 +22,10 @@ The generator grows connected regions, then merges touching regions of equal siz
 
 ## Solve a puzzle
 
+After solving, **Solve** becomes **Hide solution**. Click it to restore the original
+clues and blanks, with solution colors and region borders hidden. Click **Solve**
+again to reveal a completion. Hiding preserves the puzzle's uniqueness status.
+
 Choose the row and column counts and click **Enter clues** for a blank editable grid. Enter positive whole numbers (up to the number of cells), leaving unknown cells blank, then click **Solve**. Arrow keys move between cells. The completed board shows original clues in black (bold) and solver-filled numbers in blue. **Edit clues** restores only your original clues; **Clear clues** resets the editor. Changing either dimension starts a blank grid.
 
 The solver propagates per-cell candidate values to a fixed point in a Web Worker, then uses minimum-domain search with reversible domain updates. Deductions include completed-region exclusion, oversized-component rejection, forced-merge prevention, reachable-space pruning, exact-fit expansion, and mandatory bottleneck cells. It preserves clues and allows regions with no clues. A short whole-region search attempt handles sparse cases where that search order is faster. It returns one valid completion and does not claim uniqueness. A 10-second search budget and Cancel button keep difficult or sparse puzzles from blocking the page. A timeout is reported separately from a proven contradiction; adding clues can help. Tests cover partial puzzles, conflicting clues, unclued regions, multi-digit clues, all supported dimensions through generated-board checks, and timeout handling.
