@@ -20,7 +20,25 @@ npm run dev
 
 The generator grows connected regions, then merges touching regions of equal size until the board is valid. It samples candidates to favor smaller, readable regions. A separate flood-fill validator checks each generated board. Generation is randomized, not uniformly sampled.
 
-## Solve a puzzle
+## Choose your own clue positions
+
+Select **Choose clue positions** under Puzzle mode, set rows and columns, and
+click individual grid cells to highlight them (Tab and Space also work). Use
+**Select all** or **Clear highlights** to adjust the selection. Changing either
+dimension clears the layout. Click **Generate from highlights** to search for
+a uniquely solvable puzzle with numbers in every highlighted cell and blanks
+everywhere else. The exact layout takes precedence over rotational symmetry.
+
+The search generates random valid completed boards and checks the resulting
+clue masks with the exact solution counter. Only a completed count of one is
+accepted; timeouts are inconclusive. Each search tries up to 1,000 candidates
+or 30 seconds, with up to 500ms per uniqueness check. Failure to find a puzzle
+is not a proof that the layout is impossible. Retry or add highlights; Cancel
+preserves the layout. **Edit highlighted cells** restores your selection after
+success, and Solve / Hide solution work as usual. This mode does not remove
+highlighted clues or promise minimality.
+
+## Solve and hide a puzzle
 
 After solving, **Solve** becomes **Hide solution**. Click it to restore the original
 clues and blanks, with solution colors and region borders hidden. Click **Solve**

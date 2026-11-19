@@ -18,3 +18,13 @@
 .playback-actions button:disabled{opacity:.45;cursor:default}
 .digging-controls select:focus-visible{outline:2px solid #6f865d;outline-offset:3px}
 .symmetry-option{display:flex;align-items:center;justify-content:flex-start;gap:9px;font-size:14px;margin:16px 0 8px;cursor:pointer}.symmetry-option input{width:16px;height:16px;accent-color:#466641}.symmetry-option span{color:#304b36;font-weight:500}
+.mode-label{display:block;font-size:14px;font-weight:600;margin:16px 0 8px}
+#puzzle-mode{width:100%;font:inherit;font-size:14px;padding:10px;border:1px solid #bfcab6;border-radius:7px;background:#faf9f5;color:#304b36;margin-bottom:20px}
+.layout-help{font-size:14px;line-height:1.6;color:#53634f}
+#layout-selection-actions{margin-top:12px}
+.playback-actions[hidden]{display:none}
+.layout-cell{width:100%;height:100%;min-width:0;min-height:0;padding:0;border:0;border-radius:0;background:#faf9f5;color:#173f1c;font:inherit}
+.layout-cell[aria-pressed=true]{background:#c3dda9;box-shadow:inset 0 0 0 2px #4a703b}
+.layout-cell:focus-visible{outline:3px solid #174bc4;outline-offset:-3px}
+.layout-cell:disabled{cursor:wait;opacity:1}
+#puzzle-mode:focus-visible{outline:2px solid #6f865d;outline-offset:3px}

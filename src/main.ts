@@ -3,11 +3,12 @@ import { isValidBoard, type Board } from './generator.ts';
 import type { SolveResult } from './solver.ts';
 import type { PuzzleWorkerMessage, PuzzleWorkerRequest } from './puzzle.worker.ts';
 import { StepPlayback } from './playback.ts';
+import type { LayoutWorkerMessage } from './layout.worker.ts';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header><a class="brand" href="./"><span class="brand-mark">f.</span>fillomino<span class="brand-dot">®</span></a><span class="header-note">A LITTLE ROOM FOR LOGIC</span></header>
   <main>
-  <section class="workspace" aria-label="Fillomino generator"><aside><div class="section-label">01 / MAKE A GRID</div><h2>Start with a size.</h2><p>Choose your canvas. Generate a puzzle with exactly one solution.</p><form id="generate-form"><div class="dimension-inputs"><div><label for="rows">Rows <span>3–15</span></label><div class="size-input"><input id="rows" type="number" min="3" max="15" step="1" value="6" required aria-describedby="size-help"></div></div><div><label for="columns">Columns <span>3–15</span></label><div class="size-input"><input id="columns" type="number" min="3" max="15" step="1" value="6" required aria-describedby="size-help"></div></div></div><div id="size-help" class="hint">Rows × columns · set each dimension separately</div><label class="symmetry-option"><input id="rotational-symmetry" type="checkbox" checked><span>Rotational symmetry</span></label><p class="hint">Clues and blanks match after a half-turn.</p><button class="generate" type="submit">Generate <span aria-hidden="true">↗</span></button></form><button id="create-puzzle" class="create-puzzle" type="button">Create Puzzle</button><div class="hint">Dig clues while preserving exactly one solution.</div><div class="digging-controls"><label for="digging-speed">Digging speed</label><select id="digging-speed"><option value="2000">Slow · 2 seconds</option><option value="1000">Relaxed · 1 second</option><option value="250">Normal · 0.25 seconds</option><option value="100">Fast · 0.1 seconds</option><option value="0" selected>Maximum speed</option></select><p class="hint">Time between removals. Difficult checks may take longer.</p><div class="playback-actions"><button id="pause-digging" type="button" disabled>Pause</button><button id="resume-digging" type="button" disabled>Resume</button></div></div><div class="solver-actions"><button id="enter-clues" type="button">Enter clues</button><button id="solve" type="button">Solve</button><button id="cancel" type="button" hidden>Cancel</button></div><button id="clear-clues" class="text-button" type="button" hidden>Clear clues</button><p id="solver-help" class="hint" hidden>Enter numbers in the grid; leave unknown cells blank. Arrow keys move between cells.</p><label class="toggle"><input id="colors" type="checkbox" checked><span>Region colors</span></label><div class="rule-card"><span class="small-label">THE BEAUTY IS IN THE RULES</span><ol><li>Every region is connected edge to edge.</li><li>Each number tells you its region’s size.</li><li>Equal-sized regions never share an edge.</li></ol></div></aside>
+  <section class="workspace" aria-label="Fillomino generator"><aside><div class="section-label">01 / MAKE A GRID</div><h2>Start with a size.</h2><p>Choose your canvas. Generate a puzzle with exactly one solution.</p><label class="mode-label" for="puzzle-mode">Puzzle mode</label><select id="puzzle-mode"><option value="automatic">Automatic digging</option><option value="layout">Choose clue positions</option></select><form id="generate-form"><div class="dimension-inputs"><div><label for="rows">Rows <span>3–15</span></label><div class="size-input"><input id="rows" type="number" min="3" max="15" step="1" value="6" required aria-describedby="size-help"></div></div><div><label for="columns">Columns <span>3–15</span></label><div class="size-input"><input id="columns" type="number" min="3" max="15" step="1" value="6" required aria-describedby="size-help"></div></div></div><div id="size-help" class="hint">Rows × columns · set each dimension separately</div><div id="symmetry-settings"><label class="symmetry-option"><input id="rotational-symmetry" type="checkbox" checked><span>Rotational symmetry</span></label><p class="hint">Clues and blanks match after a half-turn.</p></div><button class="generate" type="submit">Generate <span aria-hidden="true">↗</span></button></form><div id="layout-controls" hidden><p class="layout-help">Click cells to highlight the exact clue positions. Every highlighted cell will contain a number; all other cells will be blank. Your layout is used exactly as selected, without adding symmetric partners.</p><button id="edit-layout" class="create-puzzle" type="button">Edit highlighted cells</button><div class="playback-actions" id="layout-selection-actions"><button id="select-all-cells" type="button">Select all</button><button id="clear-selected-cells" type="button">Clear highlights</button></div></div><button id="create-puzzle" class="create-puzzle" type="button">Create Puzzle</button><div id="digging-hint" class="hint">Dig clues while preserving exactly one solution.</div><div class="digging-controls"><label for="digging-speed">Digging speed</label><select id="digging-speed"><option value="2000">Slow · 2 seconds</option><option value="1000">Relaxed · 1 second</option><option value="250">Normal · 0.25 seconds</option><option value="100">Fast · 0.1 seconds</option><option value="0" selected>Maximum speed</option></select><p class="hint">Time between removals. Difficult checks may take longer.</p><div class="playback-actions"><button id="pause-digging" type="button" disabled>Pause</button><button id="resume-digging" type="button" disabled>Resume</button></div></div><div class="solver-actions"><button id="enter-clues" type="button">Enter clues</button><button id="solve" type="button">Solve</button><button id="cancel" type="button" hidden>Cancel</button></div><button id="clear-clues" class="text-button" type="button" hidden>Clear clues</button><p id="solver-help" class="hint" hidden>Enter numbers in the grid; leave unknown cells blank. Arrow keys move between cells.</p><label class="toggle"><input id="colors" type="checkbox" checked><span>Region colors</span></label><div class="rule-card"><span class="small-label">THE BEAUTY IS IN THE RULES</span><ol><li>Every region is connected edge to edge.</li><li>Each number tells you its region’s size.</li><li>Equal-sized regions never share an edge.</li></ol></div></aside>
   <div class="board-panel"><div class="board-toolbar"><span id="board-title">YOUR COMPLETED GRID</span><span class="valid-badge">✓ Valid solution</span></div><div class="board-wrap"><div id="board" role="table" aria-label="Completed Fillomino grid"></div></div><div class="board-footer"><div id="stats"></div><button id="copy" type="button">Copy grid <span aria-hidden="true">↗</span></button></div><p id="status" role="status" aria-live="polite"></p></div></section>
   <footer><span>Small numbers. Beautiful possibilities.</span><span>FILLOMINO / GRID STUDIO</span></footer></main>`;
 
@@ -25,6 +26,11 @@ let worker: Worker | undefined;
 let restoreBeforeDigging: (() => void) | undefined;
 let playback: StepPlayback<PuzzleWorkerMessage> | undefined;
 let diggingStatus = '';
+let selectingLayout = false;
+let layoutMask: boolean[] = Array(36).fill(false);
+const modeInput = document.querySelector<HTMLSelectElement>('#puzzle-mode')!;
+const layoutControls = document.querySelector<HTMLElement>('#layout-controls')!;
+const editLayoutButton = document.querySelector<HTMLButtonElement>('#edit-layout')!;
 const symmetryInput = document.querySelector<HTMLInputElement>('#rotational-symmetry')!;
 const speedInput = document.querySelector<HTMLSelectElement>('#digging-speed')!;
 const pauseButton = document.querySelector<HTMLButtonElement>('#pause-digging')!;
@@ -48,6 +54,9 @@ function stopSolving() {
   createButton.disabled = false;
   editButton.disabled = false;
   clearButton.disabled = false;
+  solveButton.disabled = selectingLayout || !!worker;
+  layoutControls.querySelectorAll('button').forEach(button => { button.disabled = false; });
+  boardElement.querySelectorAll<HTMLButtonElement>('.layout-cell').forEach(button => { button.disabled = false; });
   boardElement.removeAttribute('aria-busy');
 }
 
@@ -66,14 +75,30 @@ resumeButton.addEventListener('click', () => {
 });
 
 function draw() {
+  const customLayout = modeInput.value === 'layout';
+  document.querySelector<HTMLButtonElement>('.generate')!.textContent = customLayout ? 'Generate from highlights' : 'Generate';
+  layoutControls.hidden = !customLayout;
+  editLayoutButton.hidden = selectingLayout;
+  document.querySelector<HTMLElement>('#layout-selection-actions')!.hidden = !selectingLayout;
+  document.querySelector<HTMLElement>('#symmetry-settings')!.hidden = customLayout;
+  document.querySelector<HTMLElement>('.digging-controls')!.hidden = customLayout;
+  document.querySelector<HTMLElement>('#digging-hint')!.hidden = customLayout;
+  createButton.hidden = customLayout;
+  solveButton.disabled = selectingLayout || !!worker;
+  editButton.hidden = selectingLayout;
   solveButton.textContent = editing ? 'Solve' : 'Hide solution';
   document.querySelector('#board-title')!.textContent = editing ? uniquePuzzle ? 'YOUR FILLOMINO PUZZLE' : 'ENTER YOUR CLUES' : 'YOUR COMPLETED GRID';
   const badge = document.querySelector<HTMLElement>('.valid-badge')!;
   badge.textContent = minimalPuzzle ? '✓ Unique · fully dug' : uniquePuzzle ? '✓ Unique solution' : editing ? 'Clue editor' : '✓ Valid solution';
   editButton.textContent = editing ? 'Editing clues' : clues.some(Boolean) ? 'Edit clues' : 'Enter clues';
-  clearButton.hidden = !editing;
-  document.querySelector<HTMLElement>('#solver-help')!.hidden = !editing;
+  clearButton.hidden = !editing || selectingLayout;
+  document.querySelector<HTMLElement>('#solver-help')!.hidden = !editing || selectingLayout;
   boardElement.classList.toggle('editing', editing);
+  boardElement.classList.toggle('selecting-layout', selectingLayout);
+  if (selectingLayout) {
+    document.querySelector('#board-title')!.textContent = 'CHOOSE YOUR CLUE POSITIONS';
+    badge.textContent = 'Clue layout';
+  }
 
   boardElement.replaceChildren();
   boardElement.style.setProperty('--rows', String(board.rows));
@@ -89,7 +114,21 @@ function draw() {
       const cell = document.createElement('div');
       cell.className = 'cell';
       cell.setAttribute('role', 'cell');
-      if (editing) {
+      if (selectingLayout) {
+        const button = document.createElement('button');
+        button.type = 'button'; button.className = 'layout-cell';
+        button.setAttribute('aria-label', `Row ${row + 1}, column ${column + 1} clue position`);
+        button.setAttribute('aria-pressed', String(layoutMask[index]));
+        button.textContent = layoutMask[index] ? '●' : '';
+        button.addEventListener('click', () => {
+          layoutMask[index] = !layoutMask[index];
+          button.setAttribute('aria-pressed', String(layoutMask[index]));
+          button.textContent = layoutMask[index] ? '●' : '';
+          updateLayoutStats();
+          status.textContent = 'Layout updated. Click Generate from highlights to search for a unique puzzle.';
+        });
+        cell.append(button);
+      } else if (editing) {
         const field = document.createElement('input');
         field.type = 'text'; field.inputMode = 'numeric'; field.autocomplete = 'off';
         field.value = clues[index] ? String(clues[index]) : '';
@@ -128,11 +167,75 @@ function draw() {
     boardElement.append(rowElement);
   }
   document.querySelector('#stats')!.textContent = editing ? `${board.rows} × ${board.columns} · blanks are unknown` : `${board.rows} × ${board.columns} grid  ·  ${new Set(board.regions).size} regions  ·  ${board.values.length} cells`;
+  if (selectingLayout) updateLayoutStats();
+}
+
+function updateLayoutStats() {
+  document.querySelector('#stats')!.textContent = `${board.rows} × ${board.columns} · ${layoutMask.filter(Boolean).length} highlighted clue positions`;
+}
+
+function enterLayout(reset = false) {
+  if (!validInputs()) return;
+  stopSolving();
+  const rows = Number(rowsInput.value), columns = Number(columnsInput.value);
+  if (reset || rows !== board.rows || columns !== board.columns) layoutMask = Array(rows * columns).fill(false);
+  board = { rows, columns, values: Array(rows * columns).fill(0), regions: Array(rows * columns).fill(-1) };
+  clues = Array(rows * columns).fill(0);
+  selectingLayout = true; editing = true; uniquePuzzle = false; minimalPuzzle = false;
+  draw();
+  status.textContent = 'Highlight your chosen clue cells, then click Generate from highlights. You can use Tab and Space to select cells.';
+}
+
+modeInput.addEventListener('change', () => {
+  if (modeInput.value === 'layout') enterLayout(true);
+  else { selectingLayout = false; enterClues(true, false); }
+});
+editLayoutButton.addEventListener('click', () => enterLayout());
+document.querySelector('#select-all-cells')!.addEventListener('click', () => { layoutMask.fill(true); draw(); });
+document.querySelector('#clear-selected-cells')!.addEventListener('click', () => { layoutMask.fill(false); draw(); });
+
+function generateFromLayout() {
+  if (!validInputs()) return;
+  enterLayout();
+  if (!layoutMask.some(Boolean)) { status.textContent = 'Highlight at least one cell before generating a puzzle.'; return; }
+  const { rows, columns } = board;
+  const mask = [...layoutMask];
+  cancelButton.hidden = false;
+  layoutControls.querySelectorAll('button').forEach(button => { button.disabled = true; });
+  boardElement.querySelectorAll<HTMLButtonElement>('.layout-cell').forEach(button => { button.disabled = true; });
+  boardElement.setAttribute('aria-busy', 'true');
+  status.textContent = 'Searching for a unique puzzle with exactly your highlighted clues…';
+  try {
+    const layoutWorker = new Worker(new URL('./layout.worker.ts', import.meta.url), { type: 'module' });
+    worker = layoutWorker;
+    layoutWorker.onmessage = (event: MessageEvent<LayoutWorkerMessage>) => {
+      if (worker !== layoutWorker) return;
+      const message = event.data;
+      if (message.type === 'progress') {
+        status.textContent = `Searching… ${message.progress.attempts} candidate grids checked; ${message.progress.timeouts} inconclusive checks. Your highlighted positions stay fixed. Search limit: 30 seconds or 1,000 candidates.`;
+        return;
+      }
+      stopSolving();
+      if (message.type === 'error') { status.textContent = 'Search could not finish. Your highlights are preserved; please try again.'; return; }
+      const result = message.result;
+      if (result.status !== 'found') {
+        status.textContent = result.status === 'invalid' ? 'Highlight at least one cell and choose valid dimensions.' : `No unique puzzle found within this search (${result.attempts} candidates). This does not prove the layout is impossible. Try again or highlight more cells.`;
+        return;
+      }
+      clues = result.clues;
+      selectingLayout = false; editing = true; uniquePuzzle = true; minimalPuzzle = false;
+      draw();
+      status.textContent = `Unique puzzle found after ${result.attempts} candidates. The ${mask.filter(Boolean).length} highlighted cells are exactly the givens. Click Solve to reveal the solution.`;
+    };
+    layoutWorker.onerror = () => { stopSolving(); status.textContent = 'Search could not finish. Your highlights are preserved; please try again.'; };
+    layoutWorker.postMessage({ rows, columns, mask });
+  } catch { stopSolving(); status.textContent = 'Search could not start. Your highlights are preserved.'; }
 }
 
 function enterClues(clear = false, focus = true) {
   if (!validInputs()) return;
   stopSolving();
+  selectingLayout = false;
   const rows = Number(rowsInput.value), columns = Number(columnsInput.value);
   if (clear || rows !== board.rows || columns !== board.columns) { clues = Array(rows * columns).fill(0); uniquePuzzle = false; minimalPuzzle = false; }
   board = { rows, columns, values: Array(rows * columns).fill(0), regions: Array(rows * columns).fill(-1) };
@@ -147,7 +250,10 @@ for (const input of [rowsInput, columnsInput]) {
     if (worker) { stopSolving(); status.textContent = 'Cancelled because the dimensions changed.'; }
   });
   input.addEventListener('change', () => {
-    if (rowsInput.checkValidity() && columnsInput.checkValidity()) enterClues(true, false);
+    if (rowsInput.checkValidity() && columnsInput.checkValidity()) {
+      if (modeInput.value === 'layout') enterLayout(true);
+      else enterClues(true, false);
+    }
   });
 }
 cancelButton.addEventListener('click', () => { stopSolving(); status.textContent = 'Cancelled. Your grid and clues are unchanged.'; });
@@ -254,7 +360,8 @@ solveButton.addEventListener('click', () => {
 document.querySelector('#generate-form')!.addEventListener('submit', event => {
   event.preventDefault();
   if (!validInputs()) return;
-  startDigging(true);
+  if (modeInput.value === 'layout') generateFromLayout();
+  else startDigging(true);
 });
 document.querySelector('#colors')!.addEventListener('change', event => { boardElement.classList.toggle('no-colors', !(event.target as HTMLInputElement).checked); });
 document.querySelector('#copy')!.addEventListener('click', async () => {
