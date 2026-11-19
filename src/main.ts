@@ -7,7 +7,7 @@ import { StepPlayback } from './playback.ts';
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header><a class="brand" href="./"><span class="brand-mark">f.</span>fillomino<span class="brand-dot">®</span></a><span class="header-note">A LITTLE ROOM FOR LOGIC</span></header>
   <main>
-  <section class="workspace" aria-label="Fillomino generator"><aside><div class="section-label">01 / MAKE A GRID</div><h2>Start with a size.</h2><p>Choose your canvas. Generate a puzzle with one solution and no removable clues.</p><form id="generate-form"><div class="dimension-inputs"><div><label for="rows">Rows <span>3–15</span></label><div class="size-input"><input id="rows" type="number" min="3" max="15" step="1" value="6" required aria-describedby="size-help"></div></div><div><label for="columns">Columns <span>3–15</span></label><div class="size-input"><input id="columns" type="number" min="3" max="15" step="1" value="6" required aria-describedby="size-help"></div></div></div><div id="size-help" class="hint">Rows × columns · set each dimension separately</div><button class="generate" type="submit">Generate <span aria-hidden="true">↗</span></button></form><button id="create-puzzle" class="create-puzzle" type="button">Create Puzzle</button><div class="hint">Dig clues until every remaining clue is necessary.</div><div class="digging-controls"><label for="digging-speed">Digging speed</label><select id="digging-speed"><option value="2000">Slow · 2 seconds</option><option value="1000">Relaxed · 1 second</option><option value="250" selected>Normal · 0.25 seconds</option><option value="100">Fast · 0.1 seconds</option><option value="0">Maximum speed</option></select><p class="hint">Time between removals. Difficult checks may take longer.</p><div class="playback-actions"><button id="pause-digging" type="button" disabled>Pause</button><button id="resume-digging" type="button" disabled>Resume</button></div></div><div class="solver-actions"><button id="enter-clues" type="button">Enter clues</button><button id="solve" type="button">Solve</button><button id="cancel" type="button" hidden>Cancel</button></div><button id="clear-clues" class="text-button" type="button" hidden>Clear clues</button><p id="solver-help" class="hint" hidden>Enter numbers in the grid; leave unknown cells blank. Arrow keys move between cells.</p><label class="toggle"><input id="colors" type="checkbox" checked><span>Region colors</span></label><div class="rule-card"><span class="small-label">THE BEAUTY IS IN THE RULES</span><ol><li>Every region is connected edge to edge.</li><li>Each number tells you its region’s size.</li><li>Equal-sized regions never share an edge.</li></ol></div></aside>
+  <section class="workspace" aria-label="Fillomino generator"><aside><div class="section-label">01 / MAKE A GRID</div><h2>Start with a size.</h2><p>Choose your canvas. Generate a puzzle with exactly one solution.</p><form id="generate-form"><div class="dimension-inputs"><div><label for="rows">Rows <span>3–15</span></label><div class="size-input"><input id="rows" type="number" min="3" max="15" step="1" value="6" required aria-describedby="size-help"></div></div><div><label for="columns">Columns <span>3–15</span></label><div class="size-input"><input id="columns" type="number" min="3" max="15" step="1" value="6" required aria-describedby="size-help"></div></div></div><div id="size-help" class="hint">Rows × columns · set each dimension separately</div><label class="symmetry-option"><input id="rotational-symmetry" type="checkbox" checked><span>Rotational symmetry</span></label><p class="hint">Clues and blanks match after a half-turn.</p><button class="generate" type="submit">Generate <span aria-hidden="true">↗</span></button></form><button id="create-puzzle" class="create-puzzle" type="button">Create Puzzle</button><div class="hint">Dig clues while preserving exactly one solution.</div><div class="digging-controls"><label for="digging-speed">Digging speed</label><select id="digging-speed"><option value="2000">Slow · 2 seconds</option><option value="1000">Relaxed · 1 second</option><option value="250" selected>Normal · 0.25 seconds</option><option value="100">Fast · 0.1 seconds</option><option value="0">Maximum speed</option></select><p class="hint">Time between removals. Difficult checks may take longer.</p><div class="playback-actions"><button id="pause-digging" type="button" disabled>Pause</button><button id="resume-digging" type="button" disabled>Resume</button></div></div><div class="solver-actions"><button id="enter-clues" type="button">Enter clues</button><button id="solve" type="button">Solve</button><button id="cancel" type="button" hidden>Cancel</button></div><button id="clear-clues" class="text-button" type="button" hidden>Clear clues</button><p id="solver-help" class="hint" hidden>Enter numbers in the grid; leave unknown cells blank. Arrow keys move between cells.</p><label class="toggle"><input id="colors" type="checkbox" checked><span>Region colors</span></label><div class="rule-card"><span class="small-label">THE BEAUTY IS IN THE RULES</span><ol><li>Every region is connected edge to edge.</li><li>Each number tells you its region’s size.</li><li>Equal-sized regions never share an edge.</li></ol></div></aside>
   <div class="board-panel"><div class="board-toolbar"><span id="board-title">YOUR COMPLETED GRID</span><span class="valid-badge">✓ Valid solution</span></div><div class="board-wrap"><div id="board" role="table" aria-label="Completed Fillomino grid"></div></div><div class="board-footer"><div id="stats"></div><button id="copy" type="button">Copy grid <span aria-hidden="true">↗</span></button></div><p id="status" role="status" aria-live="polite"></p></div></section>
   <footer><span>Small numbers. Beautiful possibilities.</span><span>FILLOMINO / GRID STUDIO</span></footer></main>`;
 
@@ -25,6 +25,7 @@ let worker: Worker | undefined;
 let restoreBeforeDigging: (() => void) | undefined;
 let playback: StepPlayback<PuzzleWorkerMessage> | undefined;
 let diggingStatus = '';
+const symmetryInput = document.querySelector<HTMLInputElement>('#rotational-symmetry')!;
 const speedInput = document.querySelector<HTMLSelectElement>('#digging-speed')!;
 const pauseButton = document.querySelector<HTMLButtonElement>('#pause-digging')!;
 const resumeButton = document.querySelector<HTMLButtonElement>('#resume-digging')!;
@@ -35,6 +36,7 @@ const cancelButton = document.querySelector<HTMLButtonElement>('#cancel')!;
 const createButton = document.querySelector<HTMLButtonElement>('#create-puzzle')!;
 
 function stopSolving() {
+  symmetryInput.disabled = false;
   playback?.dispose(); playback = undefined;
   pauseButton.disabled = true; resumeButton.disabled = true;
   worker?.terminate(); worker = undefined;
@@ -66,7 +68,7 @@ resumeButton.addEventListener('click', () => {
 function draw() {
   document.querySelector('#board-title')!.textContent = editing ? uniquePuzzle ? 'YOUR FILLOMINO PUZZLE' : 'ENTER YOUR CLUES' : 'YOUR COMPLETED GRID';
   const badge = document.querySelector<HTMLElement>('.valid-badge')!;
-  badge.textContent = minimalPuzzle ? '✓ Minimal · unique' : uniquePuzzle ? '✓ Unique solution' : editing ? 'Clue editor' : '✓ Valid solution';
+  badge.textContent = minimalPuzzle ? '✓ Unique · fully dug' : uniquePuzzle ? '✓ Unique solution' : editing ? 'Clue editor' : '✓ Valid solution';
   editButton.textContent = editing ? 'Editing clues' : clues.some(Boolean) ? 'Edit clues' : 'Enter clues';
   clearButton.hidden = !editing;
   document.querySelector<HTMLElement>('#solver-help')!.hidden = !editing;
@@ -154,6 +156,8 @@ function startDigging(fresh: boolean) {
   const rows = Number(rowsInput.value), columns = Number(columnsInput.value);
   // Use the displayed completion, or generate a fresh one when in the editor.
   const source = !fresh && !editing && board.rows === rows && board.columns === columns ? board : undefined;
+  const rotationalSymmetry = symmetryInput.checked;
+  symmetryInput.disabled = true;
   const previous = { board, clues, editing, uniquePuzzle, minimalPuzzle };
   restoreBeforeDigging = () => {
     ({ board, clues, editing, uniquePuzzle, minimalPuzzle } = previous);
@@ -189,7 +193,7 @@ function startDigging(fresh: boolean) {
           });
         }
         document.querySelector('#stats')!.textContent = `${board.rows} × ${board.columns} · ${clues.length - removed} clues · ${removed} removed`;
-        status.textContent = `Digging… ${removed} removed; ${pending} clues still to decide; ${checked} checks. Round ${round || 1}${round > 1 ? ` (retrying with up to ${Math.round(checkBudgetMs / 1000)}s per check)` : ''}.`;
+        status.textContent = `Digging… ${removed} removed; ${pending} ${rotationalSymmetry ? 'symmetric groups' : 'clues'} still to decide; ${checked} checks. Round ${round || 1}${round > 1 ? ` (retrying with up to ${Math.round(checkBudgetMs / 1000)}s per check)` : ''}.`;
         diggingStatus = status.textContent;
         const changed = removed !== lastRemoved;
         lastRemoved = removed;
@@ -203,15 +207,15 @@ function startDigging(fresh: boolean) {
       board = { rows: message.rows, columns: message.columns, values: Array(clues.length).fill(0), regions: Array(clues.length).fill(-1) };
       editing = true; uniquePuzzle = true; minimalPuzzle = result.minimal; draw();
       status.textContent = result.minimal
-        ? `Digging complete: ${clues.length - result.removed} clues, ${result.removed} blanks. Exactly one solution; no remaining clue can be removed. Click Solve to reveal it.`
-        : `Digging unfinished: ${result.pending} clue checks remain inconclusive. The puzzle is unique, but minimality is not yet proved.`;
+        ? `Digging complete: ${clues.length - result.removed} clues, ${result.removed} blanks. Exactly one solution; ${rotationalSymmetry ? 'no further opposite pair or center clue can be removed' : 'no remaining clue can be removed'}. Click Solve to reveal it.`
+        : `Digging unfinished: ${result.pending} removal checks remain inconclusive. The puzzle is unique, but minimality is not yet proved.`;
       return 'done';
     }, () => diggingWorker.postMessage({ type: 'next' } satisfies PuzzleWorkerRequest));
     worker.onmessage = (event: MessageEvent<PuzzleWorkerMessage>) => {
       if (worker === diggingWorker) playback?.receive(event.data);
     };
     worker.onerror = () => { stopSolving(); status.textContent = 'Puzzle creation could not finish. Your grid is unchanged; please try again.'; };
-    worker.postMessage({ type: 'start', rows, columns, board: source } satisfies PuzzleWorkerRequest);
+    worker.postMessage({ type: 'start', rows, columns, board: source, rotationalSymmetry } satisfies PuzzleWorkerRequest);
   } catch { stopSolving(); status.textContent = 'Puzzle creation could not start in this browser. Your grid is unchanged.'; }
 }
 createButton.addEventListener('click', () => startDigging(false));

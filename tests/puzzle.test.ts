@@ -1,9 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeSolutions, countSolutions, solveBoard } from '../src/solver.ts';
-import { createPuzzle, digPuzzle } from '../src/puzzle.ts';
+import { createPuzzle as createPuzzleEngine, digPuzzle as digPuzzleEngine, type PuzzleOptions } from '../src/puzzle.ts';
 import { generateBoard, isValidBoard, type Board } from '../src/generator.ts';
 import { Constraints, newMetrics } from '../src/constraints.ts';
+
+// Preserve coverage of the original, individually minimal digging mode.
+const createPuzzle = (board: Board, options: PuzzleOptions = {}) => createPuzzleEngine(board, { rotationalSymmetry: false, ...options });
+const digPuzzle = (board: Board, options: PuzzleOptions = {}) => digPuzzleEngine(board, { rotationalSymmetry: false, ...options });
 
 function seeded(seed: number) {
   return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
@@ -43,6 +47,52 @@ function allThreeByThreeSolutions(): number[][] {
 }
 const oracle = allThreeByThreeSolutions();
 const matches = (values: number[], clues: number[]) => clues.every((clue, i) => !clue || clue === values[i]);
+
+test('default digging preserves rotational clue symmetry and is minimal by removal group', () => {
+  for (const [rows, columns] of [[3, 3], [3, 4], [4, 3], [4, 4], [3, 5]]) {
+    for (let seed = 1; seed <= 4; seed++) {
+      const board = generateBoard(rows, columns, seeded(seed));
+      const result = createPuzzleEngine(board, {
+        random: seeded(seed + 12),
+        onProgress: progress => {
+          assert.ok(progress.clues.every((value, i, all) => Boolean(value) === Boolean(all[all.length - 1 - i])));
+          assert.equal(progress.removed, progress.clues.filter(value => !value).length);
+        },
+      });
+      assert.equal(result.minimal, true);
+      assert.ok(result.removed > 0);
+      assert.equal(countSolutions(rows, columns, result.clues).count, 1);
+      if (rows === 3 && columns === 3) assert.equal(oracle.filter(values => matches(values, result.clues)).length, 1);
+      for (let cell = 0; cell < Math.ceil(result.clues.length / 2); cell++) {
+        if (!result.clues[cell]) continue;
+        const dug = [...result.clues];
+        dug[cell] = dug[dug.length - 1 - cell] = 0;
+        const count = countSolutions(rows, columns, dug);
+        assert.equal(count.status, 'complete');
+        assert.equal(count.count, 2);
+        if (rows === 3 && columns === 3) assert.ok(oracle.filter(values => matches(values, dug)).length > 1);
+      }
+    }
+  }
+});
+
+test('symmetric timeouts restore both cells and the center is checked only once per round', () => {
+  const board = generateBoard(3, 3, seeded(44));
+  const attempts: number[][] = [];
+  let time = 0;
+  const result = createPuzzleEngine(board, {
+    timeLimitMs: 5, now: () => time,
+    check: (_rows, _columns, clues) => {
+      attempts.push(clues.flatMap((value, i) => value ? [] : [i]));
+      time++;
+      return { status: 'timeout', count: 1 };
+    },
+  });
+  assert.equal(result.minimal, false);
+  assert.equal(result.pending, 5);
+  assert.deepEqual(result.clues, board.values);
+  assert.deepEqual(attempts.map(cells => cells.join(',')).sort(), ['0,8', '1,7', '2,6', '3,5', '4']);
+});
 
 test('live digging snapshots reveal only confirmed unique removals and stay immutable', () => {
   const board = generateBoard(3, 3, seeded(27));

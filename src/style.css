@@ -17,3 +17,4 @@
 .playback-actions button{flex:1;border:1px solid #bfcab6;border-radius:7px;padding:10px;background:#e2ead8;color:#304b36;font-size:14px}
 .playback-actions button:disabled{opacity:.45;cursor:default}
 .digging-controls select:focus-visible{outline:2px solid #6f865d;outline-offset:3px}
+.symmetry-option{display:flex;align-items:center;justify-content:flex-start;gap:9px;font-size:14px;margin:16px 0 8px;cursor:pointer}.symmetry-option input{width:16px;height:16px;accent-color:#466641}.symmetry-option span{color:#304b36;font-weight:500}

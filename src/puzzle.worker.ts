@@ -7,7 +7,7 @@ export type PuzzleWorkerMessage =
   | { type: 'error'; message: string };
 
 export type PuzzleWorkerRequest =
-  | { type: 'start'; rows: number; columns: number; board?: Board }
+  | { type: 'start'; rows: number; columns: number; board?: Board; rotationalSymmetry?: boolean }
   | { type: 'next' };
 
 let board: Board | undefined;
@@ -17,7 +17,7 @@ self.onmessage = (event: MessageEvent<PuzzleWorkerRequest>) => {
   try {
     if (event.data.type === 'start') {
       board = event.data.board ?? generateBoard(event.data.rows, event.data.columns);
-      steps = digPuzzle(board);
+      steps = digPuzzle(board, { rotationalSymmetry: event.data.rotationalSymmetry });
     }
     if (!steps || !board) return;
     const step = steps.next();
