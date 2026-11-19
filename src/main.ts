@@ -212,7 +212,7 @@ function generateFromLayout() {
       if (worker !== layoutWorker) return;
       const message = event.data;
       if (message.type === 'progress') {
-        status.textContent = `Searching… ${message.progress.attempts} candidate grids checked; ${message.progress.timeouts} inconclusive checks. Your highlighted positions stay fixed. Searching until a unique puzzle is found. Click Cancel to stop.`;
+        status.textContent = `Searching… ${message.progress.attempts} candidate grids considered; ${message.progress.timeouts} inconclusive checks. Your highlighted positions stay fixed. Searching until a unique puzzle is found. Click Cancel to stop.`;
         return;
       }
       stopSolving();

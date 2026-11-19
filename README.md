@@ -29,14 +29,24 @@ dimension clears the layout. Click **Generate from highlights** to search for
 a uniquely solvable puzzle with numbers in every highlighted cell and blanks
 everywhere else. The exact layout takes precedence over rotational symmetry.
 
-The search generates random valid completed boards and checks the resulting
-clue masks with the exact solution counter. Only a completed count of one is
+Custom build grows regions from highlighted cells, alternates with clue-aware
+rectangular partitions, and refines failed candidates by merging neighboring
+regions. Periodic independent restarts retain variety, including unclued regions.
+A bounded cache skips clue patterns already proved ambiguous. Only a completed count of one is
 accepted; timeouts are inconclusive. Custom build has no overall time or attempt
 limit: it keeps searching until a verified unique puzzle is found or you click
-Cancel. Individual uniqueness checks have a 500ms budget; an inconclusive check
-skips that candidate and does not stop the search. Cancel preserves the layout. **Edit highlighted cells** restores your selection after
+Cancel. Most exact checks get 25ms; every twelfth candidate gets up to 500ms.
+Timeouts remain inconclusive and are never cached as ambiguous or accepted as
+unique. The candidate counter includes cached patterns that did not need another
+check. Cancel preserves the layout. **Edit highlighted cells** restores your selection after
 success, and Solve / Hide solution work as usual. This mode does not remove
 highlighted clues or promise minimality.
+
+This search can produce fewer, larger regions than ordinary generation. It favors
+finding a valid puzzle quickly, not a difficulty rating. Run
+`node --experimental-strip-types benchmarks/layout.ts` to compare it with the
+previous Custom build algorithm. See [Custom build benchmarks](benchmarks/LAYOUT.md)
+for measured results, fixtures, and limitations.
 
 ## Solve and hide a puzzle
 

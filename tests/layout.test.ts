@@ -77,6 +77,7 @@ test('layout search retries candidates, respects time budgets and reports progre
   const progress: number[] = [];
   const result = createLayoutPuzzle(3, 3, Array(9).fill(true), {
     generate: () => board,
+    deduplicate: false, // This fake checker deliberately changes its answer.
     check: (...args) => ++checks === 1 ? { status: 'complete', count: 2 } : countSolutions(...args),
     onProgress: p => progress.push(p.attempts),
   });
